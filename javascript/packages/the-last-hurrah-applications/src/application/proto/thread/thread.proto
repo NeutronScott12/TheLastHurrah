@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package thread;
+
+service ThreadService {
+    rpc fetchThreadById(ThreadIdArgs) returns (Thread) {}
+    rpc deleteManyThreads(ThreadIdsArgs) returns (ActionComplete) {}
+}
+
+message ThreadIdsArgs {
+    repeated string id = 1;
+}
+
+message ThreadIdArgs {
+    string id = 1;
+}
+
+message Thread {
+    string id = 1;
+    string title = 2;
+    string website_url = 3;
+    string pinned_comment_id = 4;
+    string application_id = 5;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}
+
+

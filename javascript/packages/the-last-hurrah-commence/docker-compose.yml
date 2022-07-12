@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+    commence_service:
+        # network_mode: host
+        container_name: 'commence_service'
+        restart: always
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        build: .
+        image: commence_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4005:4005'

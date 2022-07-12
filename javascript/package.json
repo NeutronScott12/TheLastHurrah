@@ -1,0 +1,48 @@
+{
+    "name": "the_last_hurrah_api",
+    "version": "1.0.0",
+    "main": "index.js",
+    "license": "MIT",
+    "scripts": {
+        "remove_all:node_modules": "npx rimraf ./**/node_modules",
+        "migrate:generate": "npx lerna run migrate:generate",
+        "docker:up": "npx lerna run docker:up",
+        "docker:down": "npx lerna run docker:down",
+        "docker:build": "npx lerna run docker:build",
+        "prisma:migrate": "npx lerna run prisma:migrate",
+        "prisma:generate": "npx lerna run prisma:generate",
+        "prisma:reset": "npx lerna run prisma:reset",
+        "remove:node_modules": "npx rimraf node_modules",
+        "pre-build": "npx lerna run prebuild",
+        "publish": "npx lerna run publish",
+        "build:server:bash": "npx lerna run build:bash",
+        "build:server": "npx lerna run build",
+        "test:server": "npx lerna run test",
+        "new-version": "lerna version --conventional-commits --yes",
+        "diff": "lerna diff",
+        "docker-up": "docker-compose up -d",
+        "setup": "npm run docker-up"
+    },
+    "private": true,
+    "workspaces": {
+        "packages": [
+            "packages/*"
+        ],
+        "nohoist": [
+            "@graphql-codegen/**",
+            "@prisma/client/**",
+            "**/@prisma/client/**",
+            "**/@prisma/client",
+            "**/prisma/**",
+            "**/prisma",
+            "**/ts-proto"
+        ]
+    },
+    "devDependencies": {
+        "lerna": "^5.1.8"
+    },
+    "dependencies": {
+        "glob": "^8.0.3",
+        "rimraf": "^3.0.2"
+    }
+}

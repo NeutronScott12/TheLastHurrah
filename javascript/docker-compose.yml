@@ -1,0 +1,113 @@
+version: '3.7'
+services:
+    redis:
+        image: 'redis:alpine'
+        container_name: redis_cache
+        restart: always
+        ports:
+            - '6379:6379'
+        volumes:
+            - ./redis.conf:/usr/local/etc/redis/redis.conf
+
+    redis-commander:
+        image: rediscommander/redis-commander:latest
+        environment:
+            - REDIS_HOSTS=local:redis:6379
+        ports:
+            - '8081:8081'
+        depends_on:
+            - redis
+
+    thelasthurrah_application_database:
+        image: onjin/alpine-postgres
+        container_name: thelasthurrah_application_database
+        restart: always
+        expose:
+            - '5433'
+        ports:
+            - '5433:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_applications
+        volumes:
+            - thelasthurrah_application_database:/var/lib/postgresql/data
+
+    thelasthurrah_authentication_database:
+        image: onjin/alpine-postgres
+        container_name: thelasthurrah_authentication_database
+        restart: always
+        expose:
+            - '5434'
+        ports:
+            - '5434:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_authentication
+        volumes:
+            - thelasthurrah_authentication_database:/var/lib/postgresql/data
+
+    lasthurrah_commence_database:
+        image: onjin/alpine-postgres
+        container_name: lasthurrah_commence_database
+        restart: always
+        expose:
+            - '5435'
+        ports:
+            - '5435:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_commence
+        volumes:
+            - lasthurrah_commence_database:/var/lib/postgresql/data
+
+    lasthurrah_comments_database:
+        image: onjin/alpine-postgres
+        container_name: lasthurrah_comments_database
+        restart: always
+        expose:
+            - '5436'
+        ports:
+            - '5436:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_comments
+        volumes:
+            - lasthurrah_comments_database:/var/lib/postgresql/data
+
+    thelasthurrah_notifications_database:
+        image: onjin/alpine-postgres
+        container_name: thelasthurrah_notifications_database
+        restart: always
+        ports:
+            - '5437:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_notifications
+        volumes:
+            - thelasthurrah_notifications_database:/var/lib/postgresql/data
+
+    thelasthurrah_threads_database:
+        image: onjin/alpine-postgres
+        container_name: thelasthurrah_threads_database
+        restart: always
+        ports:
+            - '5438:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_notifications
+        volumes:
+            - thelasthurrah_threads_database:/var/lib/postgresql/data
+
+volumes:
+    thelasthurrah_application_database:
+    thelasthurrah_authentication_database:
+    lasthurrah_commence_database:
+    lasthurrah_comments_database:
+    thelasthurrah_notifications_database:
+    thelasthurrah_threads_database:

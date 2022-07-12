@@ -1,0 +1,13 @@
+version: '3.7'
+services:
+    authentication-service:
+        # network_mode: host
+        container_name: 'authentication_service'
+        restart: always
+        build: .
+        image: authentication_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4001:4001'
+            - '50050:50050'

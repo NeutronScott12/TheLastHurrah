@@ -1,0 +1,1 @@
+export const SQUARE_OPTIONS = 'SQUARE_OPTIONS'

@@ -1,0 +1,16 @@
+export const INVALID_CREDENTIALS = 'Invalid Credentials'
+export const USER_NOT_VERIFIED = 'User Not Verified'
+export const NON_ACCOUNT_EMAIL = `No account with this email exists`
+export const PORT = process.env.PORT || 4004
+export const TOKEN_SECRET = process.env.TOKEN_SECRET || 'secret'
+export const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret'
+export const MAIN_SERVER = 'http://localhost:4000/'
+export const AUTHENTICATION_PACKAGE = 'AUTHENTICATION_PACKAGE'
+export const SEND_EMAIL_TO_SUBSCRIBED_USERS = 'SEND_EMAIL_TO_SUBSCRIBED_USERS'
+export const THREAD_EMAIL_QUEUE = 'THREAD_EMAIL_QUEUE'
+export const APPLICATION_GRPC_SERVER = 'ApplicationService'
+export const THREAD_PACKAGE = 'THREAD_PACKAGE'
+export const THREAD_GRPC_SERVER = 'ThreadService'
+export const AUTHENTICATION_CACHE_KEY = 'authentication'
+export const COMMENCE_PACKAGE = 'COMMENCE_PACKAGE'
+export const COMMENCE_GRPC_SERVER = 'CommenceService'

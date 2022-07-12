@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+    subscription-service:
+        # network_mode: host
+        container_name: 'subscription_service'
+        restart: always
+        # env_file:
+        #     - ./.env.production
+        # - ./environment/.env
+        build: .
+        image: subscription_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4003:4003'

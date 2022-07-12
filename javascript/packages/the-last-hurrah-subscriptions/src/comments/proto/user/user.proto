@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package authentication;
+
+service AuthenticationService {
+    rpc getUserById(GetUserByArgs) returns (User) {}
+}
+
+message GetUserByArgs {
+    string user_id = 1;
+}
+
+message User {
+    string id = 1;
+    string username = 2;
+    string email = 3;
+}

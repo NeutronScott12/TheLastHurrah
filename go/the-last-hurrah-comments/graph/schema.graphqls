@@ -1,0 +1,265 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type CountModel {
+    up_vote: Int!
+    down_vote: Int!
+    replies: Int!
+}
+
+type RatingModel {
+    id: String!
+    author_id: String!
+}
+
+type ReportModel {
+    id: String!
+    user_id: String!
+    reason: REPORT_REASON!
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+enum REPORT_REASON {
+    DISAGREE
+    SPAM
+    INAPPROPRIATE_PROFILE
+    THREATENING_CONTENT
+    PRIVATE_INFORMATION
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type UserModel {
+    id: String!
+}
+
+type CommentModel {
+    ID: String!
+    created_at: DateTime!
+    updated_at: DateTime!
+    author: UserModel!
+    thread_id: String!
+    parent_id: String
+    PlainTextBody: String!
+    json_body: [JSON!]!
+    up_vote: [RatingModel!]!
+    down_vote: [RatingModel!]!
+    threatening_content: Boolean!
+    private_information: Boolean!
+    deleted: Boolean!
+    flagged: Boolean!
+    pending: Boolean!
+    approved: Boolean!
+    replied_to_id: String
+    user_id: String!
+    application_id: String!
+    reports: [ReportModel!]!
+    replies: [CommentModel!]!
+    _count: CountModel!
+}
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type FetchAllComments {
+    CommentsCount: Int!
+    Comments: [CommentModel!]!
+}
+
+type FetchCommentByThreadIdResponse {
+    comments_count: Float!
+    comments: [CommentModel!]!
+}
+
+type StandardResponseModel {
+    success: Boolean!
+    message: String!
+}
+
+type FetchCommentsByApplicationId {
+    comments_count: Float!
+    comments: [CommentModel!]!
+}
+
+type FetchCommentByApplicationName {
+    comments_count: Float!
+    comments: [CommentModel!]!
+}
+
+type ApplicationModel {
+    id: String!
+    moderators_ids: [String!]!
+    authenticated_users_ids: [String!]!
+    comments: [CommentModel!]!
+}
+
+type ThreadModel {
+    """
+    UUID for Thread
+    """
+    id: String!
+    pinned_comment_id: String
+    subscribed_users_ids: [String!]!
+    pinned_comment: CommentModel
+    thread_comments(
+        fetchThreadCommentsBySort: FetchThreadCommentsBySort!
+        commentsByUserIdInput: CommentsByUserIdInput
+    ): FetchCommentByThreadIdResponse!
+}
+
+input FetchThreadCommentsBySort {
+    limit: Int!
+    skip: Int!
+    sort: sort
+}
+
+enum sort {
+    ASC
+    DESC
+    TOP_VOTES
+}
+
+input CommentsByUserIdInput {
+    user_id: String
+}
+
+type CommentAndVoteCountEntity {
+    comment_count: Int!
+    vote_count: Int!
+}
+
+type ProfileEntity {
+    id: String!
+    profile_comments: [CommentModel!]!
+}
+
+type Query {
+    fetch_comments_by_thread_id(
+        fetchCommentByThreadIdInput: FetchCommentByThreadIdInput!
+    ): FetchCommentByThreadIdResponse!
+    fetch_comments_by_application_id(
+        fetchCommentsByApplicationId: FetchCommentsByApplicationIdInput!
+    ): FetchCommentsByApplicationId!
+    fetch_comments_by_application_short_name(
+        fetchCommentsByApplicationShortNameInput: FetchCommentsByApplicationShortNameInput!
+    ): FetchCommentByApplicationName!
+    fetch_comments: FetchAllComments!
+    fetch_comment_and_vote_count(
+        fetchCommentAndVoteCountInput: FetchCommentAndVoteCountInput!
+    ): CommentAndVoteCountEntity!
+}
+
+input FetchCommentByThreadIdInput {
+    limit: Int!
+    skip: Int!
+    sort: sort!
+    thread_id: String!
+    application_short_name: String!
+}
+
+input FetchCommentsByApplicationIdInput {
+    limit: Int!
+    skip: Int!
+    sort: sort
+    application_short_name: String!
+    application_id: String!
+}
+
+input FetchCommentsByApplicationShortNameInput {
+    limit: Int!
+    skip: Int!
+    sort: sort
+    application_short_name: String!
+    where: where!
+}
+
+enum where {
+    PENDING
+    APPOVED
+    SPAM
+    DELETED
+    ALL
+}
+
+input FetchCommentAndVoteCountInput {
+    user_id: String!
+}
+
+type Mutation {
+    create_comment(CreateCommentInput: CreateCommentInput!): CommentModel!
+    create_reply_comment(
+        CreateReplyCommentInput: CreateReplyCommentInput!
+    ): CommentModel!
+    update_comment(UpdateCommentInput: UpdateCommentInput!): CommentModel!
+    delete_comment(commentId: String!): StandardResponseModel!
+    delete_many_comments(
+        deleteManyCommentsInput: DeleteManyCommentsInput!
+    ): StandardResponseModel!
+    change_comment_settings(
+        ChangeCommentSettingsInput: ChangeCommentSettingsInput!
+    ): CommentModel!
+    up_vote_comment(comment_id: String!): CommentModel!
+    down_vote_comment(comment_id: String!): CommentModel!
+    create_report(createReportInput: CreateReportInput!): StandardResponseModel!
+    approve_comments(
+        approveCommentsInput: ApproveCommentsInput!
+    ): StandardResponseModel!
+}
+
+input CreateCommentInput {
+    plain_text_body: String!
+    json_body: JSON!
+    application_id: String!
+    thread_id: String!
+}
+
+input CreateReplyCommentInput {
+    plain_text_body: String!
+    json_body: JSON!
+    application_id: String!
+    thread_id: String!
+    parent_id: String!
+    replied_to_id: String!
+}
+
+input UpdateCommentInput {
+    plain_text_body: String!
+    json_body: JSON!
+    comment_id: String!
+}
+
+input DeleteManyCommentsInput {
+    comment_ids: [String!]!
+    permanent_delete: Boolean!
+}
+
+input ChangeCommentSettingsInput {
+    comment_id: String!
+    reply_notification: Boolean!
+}
+
+input CreateReportInput {
+    comment_id: String!
+    report: REPORT_REASON!
+}
+
+input ApproveCommentsInput {
+    comment_ids: [String!]!
+}

@@ -1,0 +1,81 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type CountModel {
+  up_vote: Int!
+  down_vote: Int!
+  replies: Int!
+}
+
+type RatingEntity {
+  id: String!
+  author_id: String!
+}
+
+type ReportEntity {
+  id: String!
+  user_id: String!
+  reason: REPORT_REASON!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+enum REPORT_REASON {
+  DISAGREE
+  SPAM
+  INAPPROPRIATE_PROFILE
+  THREATENING_CONTENT
+  PRIVATE_INFORMATION
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type UserEntity {
+  id: String!
+  username: String!
+}
+
+type CommentEntity {
+  id: String!
+  created_at: String!
+  updated_at: String!
+  author: UserEntity!
+  replied_to_user: UserEntity!
+  thread_id: String!
+  parent_id: String
+  plain_text_body: String!
+  json_body: [JSONObject!]!
+  up_vote: [RatingEntity!]!
+  down_vote: [RatingEntity!]!
+  edited: Boolean!
+  threatening_content: Boolean!
+  private_information: Boolean!
+  deleted: Boolean!
+  flagged: Boolean!
+  pending: Boolean!
+  approved: Boolean!
+  reply_notification: Boolean!
+  replied_to_id: String
+  user_id: String!
+  application_id: String!
+  reports: [ReportEntity!]!
+  replies: [CommentEntity!]!
+  _count: CountModel!
+}
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSONObject @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
+
+type Query {
+  fetch_comments: [CommentEntity!]!
+}
+
+type Subscription {
+  comment_added(thread_id: String!): CommentEntity!
+}

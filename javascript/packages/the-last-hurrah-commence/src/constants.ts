@@ -1,0 +1,5 @@
+export const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret'
+export const PORT = process.env.PORT || '4005'
+export const INVALID_CREDENTIALS = 'Invalid Credentials'
+export const USER_NOT_VERIFIED = 'User Not Verified'
+export const COMMENCE_GRPC_SERVER = 'CommenceService'

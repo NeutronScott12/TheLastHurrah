@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AvatarFile {
+  id             String   @id @default(uuid())
+  filename       String
+  mimetype       String
+  encoding       String
+  key            String
+  ETag           String
+  default_avatar Boolean  @default(true)
+  url            String   @default("https://res.cloudinary.com/dmxf3jh8t/image/upload/w_1000,c_fill,ar_1:1,g_auto,r_max,bo_5px_solid_red,b_rgb:262c35/v1551876589/qzlmu4vxyomehxuo3tat.jpg")
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  userId         String   @unique
+  owner          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                        String   @id @default(uuid())
+  password                  String
+  old_password              String[]
+  phone_number              String?
+  user_ip                   String?
+  email                     String   @unique
+  username                  String
+  userId                    String?
+  applications_joined_ids   String[]
+  confirmed                 Boolean      @default(false)
+  two_factor_authentication Boolean      @default(false)
+  created_at                DateTime     @default(now())
+  updated_at                DateTime     @updatedAt
+  last_active               DateTime     @default(now())
+  user_role                 UserRole @default(USER)
+  status                    OnlineStatus @default(OFFLINE)
+  blocked_users             User[]       @relation("UserToUser")
+  User                      User?        @relation("UserToUser", fields: [userId], references: [id])
+  avatar                    AvatarFile?
+}
+
+enum OnlineStatus {
+  ONLINE
+  OFFLINE
+  AWAY
+  INVISBLE
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  OWNER
+  SUPER_ADMIN
+}

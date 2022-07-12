@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-go"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum REPORT_REASON {
+  DISAGREE
+  SPAM
+  INAPPROPRIATE_PROFILE
+  THREATENING_CONTENT
+  PRIVATE_INFORMATION
+}
+
+model UpVoteRating {
+  id           String   @id @default(uuid())
+  recipient_id String
+  author_id    String
+  Comment      Comment? @relation(fields: [commentId], references: [id])
+  commentId    String?
+}
+
+model DownVoteRating {
+  id        String   @id @default(uuid())
+  author_id String
+  Comment   Comment? @relation(fields: [commentId], references: [id])
+  commentId String?
+}
+
+model Report {
+  id         String        @id @default(uuid())
+  user_id    String
+  reason     REPORT_REASON
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  Comment    Comment?      @relation(fields: [commentId], references: [id])
+  commentId  String?
+}
+
+model Comment {
+  id                  String           @id @default(uuid())
+  plain_text_body     String
+  user_id             String
+  application_id      String
+  thread_id           String
+  parent_id           String?
+  replied_to_id       String?
+  rating_id           String?
+  comment_id          String?
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @updatedAt
+  json_body           Json
+  edited              Boolean          @default(false)
+  reply_notification  Boolean          @default(true)
+  threatening_content Boolean          @default(false)
+  private_information Boolean          @default(false)
+  approved            Boolean          @default(false)
+  pending             Boolean          @default(false)
+  deleted             Boolean          @default(false)
+  flagged             Boolean          @default(false)
+  spam                Boolean          @default(false)
+  up_vote             UpVoteRating[]
+  down_vote           DownVoteRating[]
+  reports             Report[]
+  replies             Comment[]        @relation("CommentToComment")
+  Comment             Comment?         @relation("CommentToComment", fields: [comment_id], references: [id])
+}
+
+model Statistics {
+  id        String @id @default(uuid())
+  thread_id String
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}

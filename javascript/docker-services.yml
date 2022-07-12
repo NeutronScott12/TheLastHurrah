@@ -1,0 +1,61 @@
+version: '3.7'
+services:
+    application_service:
+        container_name: 'application_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-applications/Dockerfile
+        # image: application_service
+        ports:
+            - '4004:4004'
+        # environment:
+        # - THREAD_GRPC_ENDPOINT=application_service:50051
+    authentication_service:
+        container_name: 'authentication_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-authenication/Dockerfile
+        # image: authentication_service
+        ports:
+            - '4001:4001'
+    commence_service:
+        container_name: 'commence_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-commence/Dockerfile
+        # image: commence_service
+        ports:
+            - '4005:4005'
+    comments_service:
+        container_name: 'comments_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-comments/Dockerfile
+        # image: comments_service
+        ports:
+            - '4002:4002'
+    notifications_service:
+        container_name: 'notifications_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-notifications/Dockerfile
+        # image: notifications_service
+        ports:
+            - '4006:4006'
+    subscriptions_service:
+        container_name: 'subscriptions_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-subscriptions/Dockerfile
+        # image: subscriptions_service
+        ports:
+            - '4003:4003'
+    federation_service:
+        container_name: 'federation_service'
+        build:
+            context: .
+            dockerfile: packages/the-last-hurrah-federation/Dockerfile
+        # image: federation_service
+        ports:
+            - '4000:4000'
+# networks:

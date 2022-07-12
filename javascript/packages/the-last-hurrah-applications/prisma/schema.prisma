@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  STANDARD
+  PREMIUM
+}
+
+enum PRE_COMMENT_MODERATION {
+  NONE
+  NEW_COMMENTS
+  ALL
+}
+
+enum LANGUAGE {
+  ENGLISH
+}
+
+enum CATEGORY {
+  TECH
+}
+
+enum THEME {
+  AUTO
+  DARK
+  LIGHT
+}
+
+model Application {
+  id                                  String                 @id @default(uuid())
+  auth_secret                         String                 @default(uuid())
+  application_name                    String                 @unique
+  short_name                          String                 @unique
+  application_owner_id                String
+  website_url                         String?
+  description                         String?
+  default_avatar_url                  String?
+  comment_policy_url                  String?
+  comment_policy_summary              String?
+  admin_ids                           String[]
+  moderators_ids                      String[]
+  commenters_users_ids                String[]
+  banned_users_by_id                  String[]
+  shadow_banned_user_ids              String[]
+  authenticated_users_ids             String[]
+  thread_ids                          String[]
+  adult_content                       Boolean                @default(false)
+  links_in_comments                   Boolean                @default(true)
+  email_mods_when_comments_flagged    Boolean                @default(false)
+  display_comments_when_flagged       Boolean                @default(false)
+  allow_images_and_videos_on_comments Boolean                @default(true)
+  cost                                Float                  @default(0)
+  created_at                          DateTime               @default(now())
+  updated_at                          DateTime               @updatedAt
+  plan                                Plan                   @default(FREE)
+  pre_comment_moderation              PRE_COMMENT_MODERATION @default(NONE)
+  theme                               THEME                  @default(AUTO)
+  category                            CATEGORY               @default(TECH)
+  language                            LANGUAGE               @default(ENGLISH)
+  subscription                        Subscription?          @relation(fields: [subscriptionId], references: [id])
+  subscriptionId                      String?
+}
+
+model Subscription {
+  id              String        @id @default(uuid())
+  order_id        String
+  idempotency_key String
+  renewal         Boolean       @default(false)
+  renewal_date    DateTime?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  Application     Application[]
+}

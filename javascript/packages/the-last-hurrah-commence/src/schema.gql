@@ -1,0 +1,117 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type CardDetailEntity {
+  id: String!
+  status: String!
+  card_brand: String!
+  last_4: String!
+  exp_month: BigInt!
+  exp_year: BigInt!
+  fingerprint: String!
+  card_type: String!
+  prepaid_type: String!
+  bin: String!
+  entry_method: String!
+  cvv_status: String!
+  avs_status: String!
+  statement_description: String!
+  authorised_at: String!
+  captured_at: String!
+}
+
+"""Big Int Custom Scalar"""
+scalar BigInt
+
+type PaymentEntity {
+  id: String!
+  customer_id: String!
+  currency: String!
+  status: String!
+  delay_duration: String!
+  delay_action: String!
+  delayed_until: String!
+  source_type: String!
+  location_id: String!
+  risk_level: String!
+  receipt_number: String!
+  receipt_url: String!
+  square_product: String!
+  application_details: String!
+  version_token: String!
+  cardDetailsId: String!
+  approved_mount: BigInt!
+  total_mount: BigInt!
+  card_details: CardDetailEntity!
+  updated_at: DateTime!
+  created_at: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type OrderEntity {
+  id: String!
+  customer_id: String!
+  confirmed: Boolean!
+  total_price: BigInt!
+  payment: PaymentEntity!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+type StandardResponseModel {
+  success: Boolean!
+  message: String!
+}
+
+type ApplicationModel {
+  id: String!
+  moderators_ids: [String!]!
+  thread_ids: [String!]!
+  banned_users_by_id: [String!]!
+  authenticated_users_ids: [String!]!
+}
+
+type UserModel {
+  id: String!
+}
+
+type Query {
+  fetch_all_orders: [OrderEntity!]!
+}
+
+type Mutation {
+  create_order(CreateOrderInput: CreateOrderInput!): StandardResponseModel!
+  refund_order(refundOrderInput: RefundOrderInput!): StandardResponseModel!
+  cancel_order(idempotency_key: String!): StandardResponseModel!
+}
+
+input CreateOrderInput {
+  """Total cost"""
+  total_price: Float!
+  source_id: String!
+  idempotency_key: String!
+  currency: String!
+}
+
+input RefundOrderInput {
+  amount_money: BigInt!
+  currency: String!
+  idempotency_key: String!
+  payment_id: String!
+  reason: String!
+}

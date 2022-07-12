@@ -1,0 +1,6 @@
+export const INVALID_CREDENTIALS = 'Invalid Credentials'
+export const USER_NOT_VERIFIED = 'User Not Verified'
+export const EMAIL_PACKAGE = 'EMAIL_PACKAGE'
+export const EMAIL_GRPC_SERVICE = 'EmailService'
+export const EMAIL_QUEUE = 'EMAIL_QUEUE'
+export const SEND_EMAIL_QUEUE = 'SEND_EMAIL_QUEUE'

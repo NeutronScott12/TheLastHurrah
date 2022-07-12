@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package application;
+
+service ApplicationService {
+    rpc findOneApplicationById(ApplicationId) returns (Application) {}
+    rpc findOneApplicationByShortName(ApplicationShortNameArgs) returns (Application) {}
+    rpc findApplicationOnwer(FindApplicationOwnerArgs) returns (User) {}
+    rpc updateCommentersUsersIds(UpdateCommentersUsersIdsArgs) returns (ActionComplete) {}
+    rpc setAuthenticatedUser(SetApplicationUserArgs) returns (ActionComplete);
+    rpc updateThreadIds(UpdateThreadIdsArgs) returns (ActionComplete);
+    rpc removeAuthenticatedUser(RemoveApplicationUserArgs) returns (ActionComplete) {}
+    rpc removeUserFromAllApplications(RemoveUserFromAllApplications) returns (ActionComplete) {}
+    rpc checkValidUser(CheckValidUserArgs) returns (CheckValidUserResponse) {}
+}
+
+message CheckValidUserArgs {
+    string application_id = 1;
+    string application_short_name = 2;
+    string user_id = 3;
+}
+
+message CheckValidUserResponse {
+    bool success = 1;
+    string message = 2;
+    string auth_secret = 3;
+    string application_id = 4;
+}
+
+message RemoveUserFromAllApplications {
+    string user_id = 1;
+    repeated string application_ids = 2;
+}
+
+message UpdateThreadIdsArgs {
+    repeated string thread_ids = 1;
+    string application_id = 2;
+}
+
+message SetApplicationUserArgs {
+    string application_id = 1;
+    string user_id = 2;
+    string application_short_name = 3;
+}
+
+message RemoveApplicationUserArgs {
+    string application_id = 1;
+    string user_id = 2;
+}
+
+message FindApplicationOwnerArgs {
+    string application_id = 1;
+}
+
+message User {
+    string id = 1;
+    string username = 2;
+    string email = 3;
+}
+
+message UpdateCommentersUsersIdsArgs {
+    string application_id = 1;
+    string user_id = 2;
+}
+
+message ApplicationShortNameArgs {
+    string short_name = 1;
+}
+
+message ApplicationId {
+    string id = 1;
+}
+
+message Application {
+
+    string id = 1;
+    repeated string moderators_ids = 2;
+    enum PreCommentModeration {
+        ALL = 0;
+        NEW_COMMENTS = 1;
+        NONE = 2;
+    }
+    PreCommentModeration pre_comment_moderation = 3;
+    string application_name = 4;
+    repeated string commenters_users_ids = 5;
+    bool email_mods_when_comments_flagged = 6;
+    bool links_in_comments = 7;
+    bool allow_images_and_videos_on_comments = 8;
+    string application_owner_id = 9;
+    repeated string authenticated_users_ids = 10;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}

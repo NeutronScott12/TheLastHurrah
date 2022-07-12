@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package application;
+
+service ApplicationService {
+    rpc updateThreadIds(UpdateThreadIdsArgs) returns (ActionComplete);
+    rpc findOneApplicationById(ApplicationId) returns (Application);
+}
+
+message ApplicationId {
+    string id = 1;
+}
+
+message UpdateThreadIdsArgs {
+    repeated string thread_ids = 1;
+    string application_id = 2;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}
+
+message Application {
+
+    string id = 1;
+    repeated string moderators_ids = 2;
+    enum PreCommentModeration {
+        ALL = 0;
+        NEW_COMMENTS = 1;
+        NONE = 2;
+    }
+    PreCommentModeration pre_comment_moderation = 3;
+    string application_name = 4;
+    repeated string commenters_users_ids = 5;
+    bool email_mods_when_comments_flagged = 6;
+    bool links_in_comments = 7;
+    bool allow_images_and_videos_on_comments = 8;
+    string application_owner_id = 9;
+    repeated string authenticated_users_ids = 10;
+}

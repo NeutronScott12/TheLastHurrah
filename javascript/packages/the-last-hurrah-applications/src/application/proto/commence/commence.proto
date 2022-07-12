@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package commence;
+
+service CommenceService {
+    rpc createOrder(CreateOrderInput) returns (CreateOrderResponse) {}
+    rpc cancelOrder(CancelOrderInput) returns (StandardResponse) {}
+    rpc createSubscription(CreateSubscriptionInput) returns (CreateSubscriptionResponse) {}
+}
+
+message CreateSubscriptionInput {
+    string customer_id = 1;
+    string location_id = 2;
+    string plan_id = 3;
+}
+
+message CreateSubscriptionResponse {
+    string customer_id = 1;
+    string message = 2;
+    bool success = 3;
+}
+
+message CreateOrderInput {
+    string user_id = 1;
+    float total_price = 2;
+    string idempotency_key = 3;
+    string currency = 4;
+    string source_id = 5;
+}
+
+message CreateOrderResponse {
+    string id = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message CancelOrderInput {
+    string order_id = 1;
+}
+
+message StandardResponse {
+    bool success = 1;
+    string message = 2;
+}

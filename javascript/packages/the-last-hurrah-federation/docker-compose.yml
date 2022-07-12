@@ -1,0 +1,14 @@
+version: '3.7'
+services:
+    federation_service:
+        container_name: 'federation_service'
+        restart: always
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        build: .
+        image: federation_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4000:4000'

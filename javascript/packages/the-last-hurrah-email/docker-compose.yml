@@ -1,0 +1,39 @@
+version: '3.7'
+services:
+    comments-service:
+        # network_mode: host
+        container_name: 'template_service'
+        restart: always
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        build: .
+        image: comments_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4000:4000'
+
+    # redis_cache:
+    #     image: redis:alpine
+    #     container: redis_cache
+    #     restart: always
+    #     ports:
+    #         - '6379:6379'
+    #     volumes:
+    #         - ./redis.conf:/usr/local/etc/redis/redis.conf
+
+    database:
+        image: postgres:alpine
+        restart: always
+        ports:
+            - '5432:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=nest_template_database
+        volumes:
+            - thelasthurrah_application_database:/var/lib/postgresql/data
+
+volumes:
+    thelasthurrah_application_database:

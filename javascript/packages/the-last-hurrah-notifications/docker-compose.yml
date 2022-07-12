@@ -1,0 +1,16 @@
+version: '3.7'
+services:
+    notification-service:
+        # network_mode: host
+        container_name: 'notification_service'
+        restart: always
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        build: .
+        image: notification_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4006:4006'
+            - '50054:50054'

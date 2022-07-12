@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model CardDetails {
+  id                    String    @id @default(uuid())
+  status                String
+  card_brand            String
+  last_4                String
+  exp_month             BigInt
+  exp_year              BigInt
+  fingerprint           String
+  card_type             String
+  prepaid_type          String
+  bin                   String
+  entry_method          String
+  cvv_status            String
+  avs_status            String
+  statement_description String
+  authorised_at         String
+  captured_at           String
+  Payment               Payment[]
+}
+
+model Payment {
+  id                  String      @id @default(uuid())
+  customer_id         String
+  currency            String
+  status              String
+  delay_duration      String
+  delay_action        String
+  delayed_until       String
+  source_type         String
+  location_id         String
+  risk_level          String
+  receipt_number      String
+  receipt_url         String
+  square_product      String
+  application_details String
+  version_token       String
+  cardDetailsId       String
+  approved_mount      BigInt
+  total_mount         BigInt
+  updated_at          DateTime
+  created_at          DateTime
+  card_details        CardDetails @relation(fields: [cardDetailsId], references: [id])
+  Order               Order[]
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  customer_id String
+  paymentId   String
+  confirmed   Boolean
+  refunded    Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  total_price BigInt
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+}
+
+model Customer {
+  id           String   @id @default(uuid())
+  customer_id  String
+  user_id      String
+  email        String
+  phone_number String
+  given_name   String
+  family_name  String
+  postal_code  String
+  country      String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@unique([email, phone_number, customer_id])
+}

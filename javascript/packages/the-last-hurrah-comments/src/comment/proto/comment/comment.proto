@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package comment;
+
+service CommentService {
+    rpc deleteCommentsByThreadId(deleteCommentsByThreadIdArgs) returns(ActionComplete) {}
+}
+
+message deleteCommentsByThreadIdArgs {
+    string thread_id = 1;
+}
+
+message ActionComplete {
+    boolean success = 1;
+    string message = 2;
+}

@@ -1,0 +1,22 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  message        String
+  url            String
+  short_name     String?
+  user_id        String?
+  application_id String?
+}

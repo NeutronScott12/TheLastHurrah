@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+    application-service:
+        # network_mode: host
+        container_name: 'application_service'
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        restart: always
+        build: .
+        image: application_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4004:4004'
+            - '50051:50051'

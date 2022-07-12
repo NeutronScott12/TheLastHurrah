@@ -1,0 +1,199 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type SubscriptionEntity {
+  id: String!
+  order_id: String!
+  idempotency_key: String!
+  renewal: Boolean!
+  renewal_date: DateTime!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type UserModel {
+  id: String!
+}
+
+type ApplicationModel {
+  id: String!
+  application_name: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+  renewal: DateTime
+  short_name: String!
+  plan: String!
+  thread_ids: [String!]!
+  links_in_comments: Boolean!
+  email_mods_when_comments_flagged: Boolean!
+  display_comments_when_flagged: Boolean!
+  allow_images_and_videos_on_comments: Boolean!
+  pre_comment_moderation: PRE_COMMENT_MODERATION!
+  moderators_ids: [String!]!
+  commenters_users_ids: [String!]!
+  auth_secret: String!
+  website_url: String
+  category: CATEGORY!
+  language: LANGUAGE!
+  theme: THEME!
+  subscription: SubscriptionEntity!
+  adult_content: Boolean!
+  comment_policy_url: String
+  comment_policy_summary: String
+  description: String
+  default_avatar_url: String
+  cost: Float!
+  application_owner: UserModel!
+  application_owner_id: String!
+  authenticated_users_ids: [String!]!
+  banned_users_by_id: [String!]!
+}
+
+enum PRE_COMMENT_MODERATION {
+  NONE
+  NEW_COMMENTS
+  ALL
+}
+
+enum CATEGORY {
+  TECH
+}
+
+enum LANGUAGE {
+  ENGLISH
+}
+
+enum THEME {
+  AUTO
+  DARK
+  LIGHT
+}
+
+type StandardResponseModel {
+  success: Boolean!
+  message: String!
+}
+
+type CommentModel {
+  id: String!
+  replied_to_id: String
+}
+
+type ThreadModel {
+  id: String!
+}
+
+type Query {
+  fetch_application_by_short_name(fetchApplicationByShortNameInput: FetchApplicationByShortNameInput!): ApplicationModel!
+  fetch_all_applications: [ApplicationModel!]!
+  fetch_applications_by_owner_id: [ApplicationModel!]!
+  find_one_application_by_id(id: String!): ApplicationModel!
+  find_one_application_by_name(name: String!): ApplicationModel!
+}
+
+input FetchApplicationByShortNameInput {
+  application_short_name: String!
+}
+
+type Mutation {
+  create_application(createApplicationInput: CreateApplicationInput!): ApplicationModel!
+  update_application(updateApplicationInput: UpdateApplicationInput!): ApplicationModel!
+  remove_application_moderator(removeModeratorInput: RemoveModeratorInput!): ApplicationModel!
+  add_application_moderator(addModeratorInput: AddModeratorInput!): ApplicationModel!
+  remove_application(removeApplicationInput: RemoveApplicationInput!): StandardResponseModel!
+  regenerate_new_auth_secret(application_id: String!): ApplicationModel!
+  update_application_comment_rules(updateApplicationCommentRulesInput: UpdateApplicationCommentRulesInput!): ApplicationModel!
+  add_user_to_shadow_ban(addUserToShadowBan: ShadowBanUserByIdInput!): StandardResponseModel!
+  remove_users_from_shadow_ban(removeUserToShadowBan: ShadowBanUserByIdInput!): StandardResponseModel!
+  block_users_from_application(blockUsersFromApplication: BlockUserFromApplicationInput!): ApplicationModel!
+  unblock_users_from_application(unBlockUsersFromApplication: UnBlockUserFromApplicationInput!): ApplicationModel!
+  upgrade_subscription_plan: StandardResponseModel!
+  change_subscription_plan(changeSubscriptionPlan: ChangeSubscriptionPlanInput!): ApplicationModel!
+  cancel_subscription_plan: ApplicationModel!
+}
+
+input CreateApplicationInput {
+  application_short_name: String!
+  website_url: String
+  category: CATEGORY!
+  language: LANGUAGE!
+  theme: THEME!
+  adult_content: Boolean!
+  comment_policy_url: String
+  comment_policy_summary: String
+  description: String
+  default_avatar_url: String
+  application_name: String!
+}
+
+input UpdateApplicationInput {
+  application_short_name: String!
+  website_url: String
+  category: CATEGORY!
+  language: LANGUAGE!
+  theme: THEME!
+  adult_content: Boolean!
+  comment_policy_url: String
+  comment_policy_summary: String
+  description: String
+  default_avatar_url: String
+  id: String!
+}
+
+input RemoveModeratorInput {
+  moderator_id: String!
+  application_id: String!
+}
+
+input AddModeratorInput {
+  moderator_id: String!
+  application_id: String!
+}
+
+input RemoveApplicationInput {
+  application_id: String!
+}
+
+input UpdateApplicationCommentRulesInput {
+  application_short_name: String!
+  links_in_comments: Boolean!
+  email_mods_when_comments_flagged: Boolean!
+  display_comments_when_flagged: Boolean!
+  allow_images_and_videos_on_comments: Boolean!
+  pre_comment_moderation: PRE_COMMENT_MODERATION!
+}
+
+input ShadowBanUserByIdInput {
+  application_short_name: String!
+  user_id: String!
+}
+
+input BlockUserFromApplicationInput {
+  application_id: String!
+  user_ids: [String!]!
+}
+
+input UnBlockUserFromApplicationInput {
+  application_id: String!
+  user_ids: [String!]!
+}
+
+input ChangeSubscriptionPlanInput {
+  id: String!
+}

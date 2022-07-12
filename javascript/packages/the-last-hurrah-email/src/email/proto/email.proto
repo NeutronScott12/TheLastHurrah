@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package email;
+
+service EmailService {
+    rpc sendEmail(SendEmailArgs) returns (ActionComplete);
+}
+
+message SendEmailArgs {
+    string application_id = 1;
+    string user_id = 2;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}

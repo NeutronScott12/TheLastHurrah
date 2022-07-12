@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vote {
+  id       String  @id @default(uuid())
+  user_id  String
+  Option   Option? @relation(fields: [optionId], references: [id])
+  optionId String?
+}
+
+model Option {
+  id     String  @id @default(uuid())
+  option String
+  votes  Vote[]
+  Poll   Poll?   @relation(fields: [pollId], references: [id])
+  pollId String?
+}
+
+model Poll {
+  id         String   @id @default(uuid())
+  title      String
+  voted      String[]
+  closed     Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  options    Option[]
+  Thread     Thread[]
+}
+
+model Thread {
+  id                   String   @id @default(uuid())
+  title                String
+  website_url          String
+  application_id       String
+  pinned_comment_id    String?
+  pollId               String?
+  commenters_ids       String[]
+  subscribed_users_ids String[]
+  active_users         String[]
+  thread_closed        Boolean  @default(false)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  views                View[]
+  poll                 Poll?    @relation(fields: [pollId], references: [id])
+}
+
+model View {
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  Thread     Thread?  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId   String?
+}

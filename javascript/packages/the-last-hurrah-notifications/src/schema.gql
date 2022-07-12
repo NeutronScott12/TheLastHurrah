@@ -1,0 +1,64 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type NotificationEntity {
+  id: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+  message: String!
+  application_id: String
+  url: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type StandardResponse {
+  success: Boolean!
+  message: String!
+}
+
+type Query {
+  fetch_notifications: [NotificationEntity!]!
+  fetch_notifications_by_short_name(fetchNotificationByApplicationShortNameInput: FetchNotificationByApplicationShortNameInput!): [NotificationEntity!]!
+  fetch_notifications_by_application_id(fetchNotificationsByApplicationIdInput: FetchNotificationByApplicationIdInput!): [NotificationEntity!]!
+  fetch_notifications_by_user_id(fetchNotificationsByUserIdInput: FetchNotificationsByUserIdInput!): [NotificationEntity!]!
+}
+
+input FetchNotificationByApplicationShortNameInput {
+  short_name: String!
+}
+
+input FetchNotificationByApplicationIdInput {
+  application_id: String!
+}
+
+input FetchNotificationsByUserIdInput {
+  user_id: String!
+}
+
+type Mutation {
+  delete_notification(deleteNotification: DeleteNotificationInput!): StandardResponse!
+  delete_many_notifications(deleteManyNotifications: DeleteManyNotificationsInput!): StandardResponse!
+}
+
+input DeleteNotificationInput {
+  id: String!
+}
+
+input DeleteManyNotificationsInput {
+  notifications_ids: [String!]!
+}

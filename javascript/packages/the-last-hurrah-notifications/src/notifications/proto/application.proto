@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package application;
+
+
+
+service ApplicationService {
+    rpc findOneApplicationByShortName(ApplicationShortNameArgs) returns (Application) {}
+
+}
+
+message ApplicationShortNameArgs {
+    string short_name = 1;
+}
+
+message Application {
+    string id = 1;
+    repeated string moderators_ids = 2;
+}

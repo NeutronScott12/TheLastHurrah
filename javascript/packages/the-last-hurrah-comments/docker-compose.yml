@@ -1,0 +1,15 @@
+version: '3.7'
+services:
+    comments-service:
+        # network_mode: host
+        container_name: 'comments_service'
+        restart: always
+        env_file:
+            #     - ./.env.production
+            - ./environment/.env
+        build: .
+        image: comments_service
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '4002:4002'

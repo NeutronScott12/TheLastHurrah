@@ -1,0 +1,170 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type VoteEntity {
+  id: String!
+  user_id: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type OptionEntity {
+  id: String!
+  option: String!
+  votes: [VoteEntity!]!
+}
+
+type PollEntity {
+  id: String!
+  title: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+  voted: [String!]!
+  closed: Boolean!
+  options: [OptionEntity!]!
+}
+
+type ThreadModel {
+  """UUID for Thread"""
+  id: String!
+  title: String!
+  website_url: String!
+  pinned_comment_id: String
+  application_id: String!
+  commenters_ids: [String!]!
+  subscribed_users_ids: [String!]!
+  poll: PollEntity
+  parent_application: ApplicationModel!
+  thread_stats(fetchThreadStats: FetchThreadStats!): ViewEntity!
+}
+
+input FetchThreadStats {
+  limit: Int!
+  skip: Int!
+}
+
+type ApplicationModel {
+  id: String!
+  moderators_ids: [String!]!
+  authenticated_users_ids: [String!]!
+  thread_ids: [String!]!
+  banned_users_by_id: [String!]!
+  threads: [ThreadModel!]!
+}
+
+type StandardResponseModel {
+  success: Boolean!
+  message: String!
+}
+
+type ViewEntity {
+  id: String!
+  user_id: String!
+  view_count: Int!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+type Query {
+  fetch_all_threads: [ThreadModel!]!
+  find_thread_by_id(findThreadById: FindThreadByIdInput!): ThreadModel!
+  find_one_thread_or_create_one(findOrCreateOneThreadInput: FindOrCreateOneThreadInput!): ThreadModel!
+  fetch_threads_by_user_id(fetchThreadsByUserIdInput: FetchThreadsByUserIdInput!): [ThreadModel!]!
+  is_user_subscribed_to_thread(isUserSubscribedToThreadInput: IsUserSubscribedToThreadInput!): StandardResponseModel!
+}
+
+input FindThreadByIdInput {
+  thread_id: String!
+}
+
+input FindOrCreateOneThreadInput {
+  """Thread Title"""
+  title: String
+
+  """Thread website url"""
+  website_url: String!
+
+  """Application ID"""
+  application_id: String!
+}
+
+input FetchThreadsByUserIdInput {
+  user_id: String!
+}
+
+input IsUserSubscribedToThreadInput {
+  thread_id: String!
+}
+
+type Mutation {
+  add_pinned_comment(addPinnedCommentInput: AddPinnedCommentInput!): ThreadModel!
+  toggle_subscription_to_thread(toggleSubscriptionToThreadInput: ToggleSubscriptionToThreadInput!): StandardResponseModel!
+  add_user_to_threads_active_users(addUserToActiveUsersInput: AddUserToActiveUsersInput!): StandardResponseModel!
+  remove_user_from_threads_active_users(removeUserFromThreadsActiveUsersInput: RemoveUserFromThreadsActiveUsersInput!): StandardResponseModel!
+  delete_thread_by_id(deleteThreadInput: DeleteThreadInput!): StandardResponseModel!
+  create_poll(createPollInput: CreatePollInput!): PollEntity!
+  update_poll_vote(updatePollVoteInput: UpdatePollVoteInput!): PollEntity!
+  delete_poll(deletePollInput: DeletePollInput!): StandardResponseModel!
+  close_poll(closePollInput: ClosePollInput!): PollEntity!
+}
+
+input AddPinnedCommentInput {
+  thread_id: String!
+  comment_id: String!
+}
+
+input ToggleSubscriptionToThreadInput {
+  thread_id: String!
+}
+
+input AddUserToActiveUsersInput {
+  thread_id: String!
+}
+
+input RemoveUserFromThreadsActiveUsersInput {
+  thread_id: String!
+}
+
+input DeleteThreadInput {
+  id: String!
+}
+
+input CreatePollInput {
+  thread_id: String!
+  title: String!
+  options: [OptionInput!]!
+}
+
+input OptionInput {
+  option: String!
+}
+
+input UpdatePollVoteInput {
+  poll_id: String!
+  options_id: String!
+}
+
+input DeletePollInput {
+  poll_id: String!
+  thread_id: String!
+}
+
+input ClosePollInput {
+  poll_id: String!
+}

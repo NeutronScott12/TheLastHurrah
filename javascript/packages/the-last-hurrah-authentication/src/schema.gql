@@ -1,0 +1,213 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+directive @key(fields: String!) on OBJECT | INTERFACE
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external on OBJECT | FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+type AvatarEntity {
+  id: String!
+  filename: String!
+  encoding: String!
+  key: String!
+  ETag: String!
+  url: String!
+  default_avatar: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type UserModel {
+  id: String!
+  applications_joined_ids: [String!]!
+  created_at: DateTime!
+  updated_at: DateTime!
+  user_role: USER_ROLE!
+  email: String!
+  blocked_users: [UserModel!]!
+  status: STATUS!
+  avatar: AvatarEntity!
+  two_factor_authentication: Boolean!
+  username: String!
+  last_active: DateTime!
+  confirmed: Boolean!
+}
+
+enum USER_ROLE {
+  USER
+  MODERATOR
+  ADMIN
+  OWNER
+  SUPER_ADMIN
+}
+
+enum STATUS {
+  ONLINE
+  OFFLINE
+  AWAY
+  INVISBLE
+}
+
+type ApplicationModel {
+  id: String!
+  moderators_ids: [String!]!
+  authenticated_users_ids: [String!]!
+  thread_ids: [String!]!
+  banned_users_by_id: [String!]!
+  authenticated_users(authenticatedUserInput: AuthenticatedUserInput!): [UserModel!]!
+  moderators: [UserModel!]!
+}
+
+input AuthenticatedUserInput {
+  choice: CHOICE!
+  limit: Int!
+  skip: Int!
+}
+
+enum CHOICE {
+  ALL
+  BLOCKED
+  REMOVED
+}
+
+type CommentModel {
+  id: String!
+  replied_to_id: String
+  replied_to_user: UserModel
+}
+
+type ProfileEntity {
+  id: String!
+  user: UserModel!
+}
+
+type StandardResponseModel {
+  success: Boolean!
+  message: String!
+}
+
+type TwoFactorLoginSuccessResponse {
+  success: Boolean!
+  message: String!
+  token: String!
+  refresh_token: String!
+  user: UserModel!
+  two_factor_authentication: Boolean!
+}
+
+type ThreadModel {
+  id: String!
+  subscribed_users_ids: [String!]!
+  application_id: String!
+  pinned_comment_id: String
+  subscribed_users: [UserModel!]!
+}
+
+type OrderEntity {
+  id: String!
+  customer_id: String!
+  customer: UserModel!
+}
+
+type Query {
+  search_user_by_email(email: String!): UserModel!
+  fetch_users: [UserModel!]!
+  current_user: UserModel!
+  resend_email_code(resendEmailCodeInput: ResendEmailCodeInput!): StandardResponseModel!
+  find_profile(findProfileInput: FindProfileInput!): ProfileEntity!
+}
+
+input ResendEmailCodeInput {
+  email: String!
+  redirect_url: String!
+}
+
+input FindProfileInput {
+  username: String!
+}
+
+type Mutation {
+  register_user(registrationInput: RegistrationInput!): StandardResponseModel!
+  login_user(loginInput: LoginInput!): LoginResponseUnion!
+  two_factor_login(twoFactorInput: TwoFactorInput!): TwoFactorLoginSuccessResponse!
+  logout_user: StandardResponseModel!
+  block_user(user_id: String!): StandardResponseModel!
+  unblock_user(user_id: String!): StandardResponseModel!
+  forgot_password(forgotPasswordInput: ForgotPasswordInput!): StandardResponseModel!
+  change_password(changePasswordInput: ChangePasswordInput!): StandardResponseModel!
+  confirm_user(token: String!): StandardResponseModel!
+  update_user(updateUserInput: UpdateUserInput!): UserModel!
+  delete_user(deleteUserInput: DeleteUserInput!): StandardResponseModel!
+}
+
+input RegistrationInput {
+  username: String!
+  email: String!
+  password: String!
+  application_id: String
+  redirect_url: String
+  two_factor_authentication: Boolean = false
+  application_short_name: String
+}
+
+union LoginResponseUnion = LoginResponse | TwoFactorLoginResponse
+
+type LoginResponse {
+  success: Boolean!
+  message: String!
+  token: String!
+  refresh_token: String!
+  user: UserModel!
+  two_factor_authentication: Boolean!
+}
+
+type TwoFactorLoginResponse {
+  success: Boolean!
+  message: String!
+  two_factor_authentication: Boolean!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+  application_short_name: String
+}
+
+input TwoFactorInput {
+  two_factor_id: String!
+  email: String!
+  application_short_name: String
+}
+
+input ForgotPasswordInput {
+  email: String!
+  redirect_url: String
+}
+
+input ChangePasswordInput {
+  email: String!
+  password: String!
+}
+
+input UpdateUserInput {
+  two_factor_authentication: Boolean
+  user_role: USER_ROLE
+  email: String
+  username: String
+}
+
+input DeleteUserInput {
+  email: String!
+}
