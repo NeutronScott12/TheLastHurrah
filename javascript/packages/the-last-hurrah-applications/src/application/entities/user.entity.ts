@@ -1,9 +1,9 @@
-import { Directive, Field, ObjectType, ID } from '@nestjs/graphql'
+import { Directive, Field, ObjectType } from '@nestjs/graphql'
 @ObjectType()
 @Directive('@extends')
 @Directive('@key(fields: "id")')
 export class UserModel {
-    @Field((type) => String)
+    @Field(() => String)
     @Directive('@external')
     id: string
 }

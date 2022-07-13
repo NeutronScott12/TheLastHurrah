@@ -1,11 +1,8 @@
 import {
-    Body,
     // CacheInterceptor,
     // CacheKey,
     Controller,
-    Get,
     InternalServerErrorException,
-    Post,
     // UseInterceptors,
 } from '@nestjs/common'
 import { GrpcMethod, RpcException } from '@nestjs/microservices'
@@ -36,21 +33,6 @@ export class ApplicationController {
         private applicationService: ApplicationService,
         private userGrpcService: UserGrpcService,
     ) {}
-
-    @Public()
-    @Post('/check_valid_user')
-    async check_Valid_user(@Body() args: ICheckValidUserArgs) {
-        try {
-            console.log('CHECK_VALID_USER_ARGS', args)
-            //@ts-ignore
-            return this.applicationService.check_valid_user(args.data)
-        } catch (error) {
-            throw new InternalServerErrorException({
-                success: false,
-                message: error.message,
-            })
-        }
-    }
 
     @Public()
     @GrpcMethod(APPLICATION_GRPC_SERVER, 'checkValidUser')

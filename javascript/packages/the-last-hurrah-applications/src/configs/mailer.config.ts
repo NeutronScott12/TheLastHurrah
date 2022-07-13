@@ -6,7 +6,7 @@ import * as sendgridTransport from 'nodemailer-sendgrid-transport'
 import { configOptions } from './config'
 class MailOptions {
     static getMailOptions(configService: ConfigService): MailerOptions {
-        let transport =
+        const transport =
             process.env.NODE_ENV === 'development'
                 ? {
                       service: 'Gmail',

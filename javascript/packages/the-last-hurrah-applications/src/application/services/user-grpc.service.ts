@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common'
 import { ClientGrpc } from '@nestjs/microservices'
 import { lastValueFrom } from 'rxjs'
-import { AUTHENTICATION_PACKAGE } from '../../constants'
-import {
+import { AUTHENTICATION_PACKAGE } from '~/constants'
+import type {
     IAuthenticationService,
     IGetUserByIdArgs,
     IUser,

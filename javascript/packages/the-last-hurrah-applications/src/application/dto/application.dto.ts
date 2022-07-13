@@ -11,16 +11,16 @@ export class ApplicationDto {
     @Field()
     short_name: string
 
-    @Field((type) => Date)
+    @Field(() => Date)
     created_at: Date
 
-    @Field((type) => Date)
+    @Field(() => Date)
     updated_at: Date
 
     @Field()
     plan: string
 
-    @Field((type) => [String])
+    @Field(() => [String])
     moderators_ids: string[]
 
     @Field(() => String)
@@ -32,9 +32,9 @@ export class ApplicationDto {
     @Field(() => Float)
     cost: number
 
-    @Field((type) => String)
+    @Field(() => String)
     application_owner_id: string
 
-    @Field((type) => [String], { defaultValue: [] })
+    @Field(() => [String], { defaultValue: [] })
     authenticated_users_ids: string[]
 }

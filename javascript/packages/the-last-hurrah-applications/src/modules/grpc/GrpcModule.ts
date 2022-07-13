@@ -7,9 +7,7 @@ import { grpClient } from 'src/configs/grpClient.config'
     providers: [],
 })
 export class GrpcModule {
-    constructor() {}
-
-    static registerGrpc() {}
-
-    static registerAsyncGrpc() {}
+    // constructor() {}
+    // static registerGrpc() {}
+    // static registerAsyncGrpc() {}
 }

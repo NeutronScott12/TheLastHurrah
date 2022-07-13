@@ -25,13 +25,13 @@ export class ApplicationModel {
     @Field()
     application_name: string
 
-    @Field((type) => Date)
+    @Field(() => Date)
     created_at: Date
 
-    @Field((type) => Date)
+    @Field(() => Date)
     updated_at: Date
 
-    @Field((type) => Date, { nullable: true })
+    @Field(() => Date, { nullable: true })
     renewal: Date
 
     @Field()
@@ -55,13 +55,13 @@ export class ApplicationModel {
     @Field(() => Boolean)
     allow_images_and_videos_on_comments: boolean
 
-    @Field((type) => PRE_COMMENT_MODERATION)
+    @Field(() => PRE_COMMENT_MODERATION)
     pre_comment_moderation: PRE_COMMENT_MODERATION
 
-    @Field((type) => [String])
+    @Field(() => [String])
     moderators_ids: string[]
 
-    @Field((type) => [String])
+    @Field(() => [String])
     commenters_users_ids: string[]
 
     @Field(() => String)
@@ -100,15 +100,15 @@ export class ApplicationModel {
     @Field(() => Float)
     cost: number
 
-    @Field((type) => UserModel)
+    @Field(() => UserModel)
     application_owner: UserModel
 
-    @Field((type) => String)
+    @Field(() => String)
     application_owner_id: string
 
-    @Field((type) => [String], { defaultValue: [] })
+    @Field(() => [String], { defaultValue: [] })
     authenticated_users_ids: string[]
 
-    @Field((type) => [String])
+    @Field(() => [String])
     banned_users_by_id: string[]
 }

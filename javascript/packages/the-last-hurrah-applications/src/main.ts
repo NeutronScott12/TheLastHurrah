@@ -4,7 +4,7 @@ import { startUpMessages } from '@thelasthurrah/the-last-hurrah-shared'
 import { join } from 'path/posix'
 
 import * as compression from 'compression'
-import * as helmet from 'helmet'
+// import * as helmet from 'helmet'
 
 import { AppModule } from './app.module'
 import { PORT } from './constants'

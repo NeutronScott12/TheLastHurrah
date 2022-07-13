@@ -5,6 +5,9 @@
     "author": "",
     "private": true,
     "license": "UNLICENSED",
+    "engines": {
+        "npm": "please-use-yarn"
+    },
     "scripts": {
         "remove_all:node_modules": "npx rimraf ./**/node_modules",
         "remove:node_modules": "npx rimraf node_modules",
@@ -28,6 +31,9 @@
         "test:cov": "cross-env NODE_ENV=test jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
         "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json"
+    },
+    "prisma": {
+        "seed": "node --require esbuild-register prisma/seed.ts"
     },
     "resolutions": {
         "graphql": "^15.7.2",
@@ -94,9 +100,11 @@
         "@types/supertest": "^2.0.12",
         "@typescript-eslint/eslint-plugin": "^5.30.6",
         "@typescript-eslint/parser": "^5.30.6",
+        "esbuild-register": "^3.3.3",
         "eslint": "^8.19.0",
         "eslint-config-prettier": "^8.5.0",
         "eslint-plugin-prettier": "^4.2.1",
+        "husky": "^8.0.1",
         "jest": "^28.1.2",
         "prettier": "^2.7.1",
         "prisma": "^4.0.0",

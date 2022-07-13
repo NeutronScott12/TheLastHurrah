@@ -1,6 +1,6 @@
-import { NotFoundException } from '@nestjs/common'
-import { Parent, ResolveField, Resolver } from '@nestjs/graphql'
-import { ApplicationModel } from '../entities/application.entity'
+// import { NotFoundException } from '@nestjs/common'
+import { Resolver } from '@nestjs/graphql'
+// import { ApplicationModel } from '../entities/application.entity'
 import { ThreadModel } from '../entities/thread.entity'
 import { ApplicationService } from '../services/application.service'
 

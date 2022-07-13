@@ -49,6 +49,6 @@ export class SubscriptionResolver {
         }
     }
 
-    @Mutation(() => ApplicationModel)
-    cancel_subscription_plan() {}
+    // @Mutation(() => ApplicationModel)
+    // cancel_subscription_plan() {}
 }

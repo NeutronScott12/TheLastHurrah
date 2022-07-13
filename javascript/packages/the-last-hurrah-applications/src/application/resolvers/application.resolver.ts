@@ -42,7 +42,7 @@ export class ApplicationResolver {
         private readonly commenceService: CommenceGrpcService,
     ) {}
 
-    @ResolveField('application_owner', (of) => UserModel)
+    @ResolveField('application_owner', () => UserModel)
     public getApplicationOwner(@Parent() application: ApplicationModel) {
         return { __typename: 'UserModel', id: application.application_owner_id }
     }
@@ -313,6 +313,8 @@ export class ApplicationResolver {
                 location_id: '',
                 plan_id: '',
             })
+
+            return result
         } catch (error) {
             throw new NotAcceptableException({
                 success: false,

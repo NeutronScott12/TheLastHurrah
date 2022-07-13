@@ -1,4 +1,4 @@
-import { Field, InputType, registerEnumType } from '@nestjs/graphql'
+import { Field, InputType } from '@nestjs/graphql'
 
 export enum PRE_COMMENT_MODERATION {
     NONE = 'NONE',

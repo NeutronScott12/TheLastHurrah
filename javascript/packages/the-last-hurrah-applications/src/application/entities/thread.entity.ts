@@ -1,5 +1,4 @@
 import { Directive, Field, ObjectType } from '@nestjs/graphql'
-import { ApplicationModel } from './application.entity'
 
 @ObjectType()
 @Directive('@extends')

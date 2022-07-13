@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BullModule } from '@nestjs/bull'
-import { Application } from '@prisma/client'
+// import { Application } from '@prisma/client'
 
 import { ApplicationResolver } from '../application.resolver'
 import { ApplicationService } from '../../services/application.service'
@@ -13,7 +13,7 @@ import { ClientsModule } from '@nestjs/microservices'
 describe('ApplicationResolver', () => {
     let resolver: ApplicationResolver
 
-    let application: Application
+    // let application: Application
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({

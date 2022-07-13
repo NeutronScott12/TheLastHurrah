@@ -7,15 +7,15 @@ import {
 } from '@nestjs/common'
 import { ICurrentUser } from '@thelasthurrah/the-last-hurrah-shared'
 
-import { INVALID_CREDENTIALS } from '../../constants'
-import { checkIfOwnerOrModerator } from '../../helpers/authorisation'
+import { INVALID_CREDENTIALS } from '~/constants'
+import { checkIfOwnerOrModerator } from '~/helpers/authorisation'
 import { PrismaService } from '../../prisma/prisma.service'
 import { BlockUserFromApplicationInput } from '../dto/inputs/block-user-from-application.input'
 import { RemoveApplicationInput } from '../dto/inputs/remove-application.input'
 import { ShadowBanUserByIdInput } from '../dto/inputs/shadow-ban-user-by-id.input'
 import { UnBlockUserFromApplicationInput } from '../dto/inputs/ublock-user-from-application.input'
 import { ApplicationProducer } from '../producers/application.producer'
-import {
+import type {
     ActionComplete,
     ICheckValidUserArgs,
     SetApplicationUserArgs,

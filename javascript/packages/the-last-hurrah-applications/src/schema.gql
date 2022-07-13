@@ -125,7 +125,6 @@ type Mutation {
   unblock_users_from_application(unBlockUsersFromApplication: UnBlockUserFromApplicationInput!): ApplicationModel!
   upgrade_subscription_plan: StandardResponseModel!
   change_subscription_plan(changeSubscriptionPlan: ChangeSubscriptionPlanInput!): ApplicationModel!
-  cancel_subscription_plan: ApplicationModel!
 }
 
 input CreateApplicationInput {

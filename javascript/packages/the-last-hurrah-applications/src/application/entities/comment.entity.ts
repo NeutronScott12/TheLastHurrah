@@ -7,7 +7,7 @@ export class CommentModel {
     @Directive('@external')
     id: string
 
-    @Field((type) => String, { nullable: true })
+    @Field(() => String, { nullable: true })
     @Directive('@external')
     replied_to_id: string
 }

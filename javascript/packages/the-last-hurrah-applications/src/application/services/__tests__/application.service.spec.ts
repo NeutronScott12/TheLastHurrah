@@ -13,8 +13,16 @@ describe('ApplicationService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            imports: [ClientsModule.register(grpClient), BullModule.registerQueue({ name: 'comment_queue' })],
-            providers: [ApplicationService, ApplicationProducer, ThreadGrpcService, PrismaService],
+            imports: [
+                ClientsModule.register(grpClient),
+                BullModule.registerQueue({ name: 'comment_queue' }),
+            ],
+            providers: [
+                ApplicationService,
+                ApplicationProducer,
+                ThreadGrpcService,
+                PrismaService,
+            ],
         }).compile()
 
         service = module.get<ApplicationService>(ApplicationService)

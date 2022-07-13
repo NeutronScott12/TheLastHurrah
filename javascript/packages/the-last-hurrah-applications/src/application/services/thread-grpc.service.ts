@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common'
 import { ClientGrpc } from '@nestjs/microservices'
 import { lastValueFrom } from 'rxjs'
-import { THREAD_GRPC_SERVER, THREAD_PACKAGE } from '../../constants'
-import {
+import { THREAD_GRPC_SERVER, THREAD_PACKAGE } from '~/constants'
+import type {
     IActionComplete,
     IThread,
     IThreadIdArgs,

@@ -3,7 +3,7 @@ import { ClientGrpc, RpcException } from '@nestjs/microservices'
 import { lastValueFrom } from 'rxjs'
 
 import { COMMENCE_GRPC_SERVER, COMMENCE_PACKAGE } from '../../constants'
-import {
+import type {
     ICommenceService,
     ICreateOrderInput,
     ICreateOrderResponse,
