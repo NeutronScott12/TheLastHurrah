@@ -13,6 +13,11 @@ import { HttpService } from '@nestjs/axios';
 
 import { AUTHENTICATION_CACHE_KEY, USER_NOT_VERIFIED } from '../constants';
 
+const DOMAIN =
+    process.env.NODE_ENV === 'production'
+        ? 'host.docker.internal'
+        : 'localhost';
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(
@@ -31,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 if (decodeToken && decodeToken.application_id) {
                     this.httpService
                         .post(
-                            'http://localhost:4004/api/applications/check_valid_user',
+                            `http://${DOMAIN}:4004/api/applications/check_valid_user`,
                             { data: { ...decodeToken } },
                         )
                         .subscribe((response) => {

@@ -4,16 +4,20 @@ import {
     NotFoundException,
     OnModuleInit,
 } from '@nestjs/common'
-import { ClientGrpc } from '@nestjs/microservices'
+import { ClientGrpc, RpcException } from '@nestjs/microservices'
 import { lastValueFrom, Observable } from 'rxjs'
 import {
     IActionComplete,
     IApplicationDto,
-    IApplicationService,
     IApplicationShortNameArgs,
     UpdateCommentersUsersIdsArgs,
 } from '../proto/types'
 import { APPLICATION_GRPC_SERVICE, APPLICATION_PACKAGE } from 'src/constants'
+import {
+    IApplicationService,
+    ICheckValidUserArgs,
+    ICheckValidUserResponse,
+} from '../proto/application/application_grpc_types'
 
 @Injectable()
 export class ApplicationService implements OnModuleInit {
@@ -27,6 +31,18 @@ export class ApplicationService implements OnModuleInit {
             this.grpClient.getService<IApplicationService>(
                 APPLICATION_GRPC_SERVICE,
             )
+    }
+
+    async checkValidUser(
+        args: ICheckValidUserArgs,
+    ): Promise<ICheckValidUserResponse> {
+        try {
+            const response = this.ApplicationService.checkValidUser(args)
+
+            return lastValueFrom(response)
+        } catch (error) {
+            throw new RpcException({ success: false, message: error.message })
+        }
     }
 
     updateCommentersUsersIds(

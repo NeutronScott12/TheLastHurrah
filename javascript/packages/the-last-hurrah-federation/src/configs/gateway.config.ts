@@ -17,6 +17,8 @@ const url =
     process.env.NODE_ENV === 'development' ? '0.0.0.0' : 'host.docker.internal'
 // const url = '0.0.0.0'
 
+// let requests = 0
+
 export class GatewayConfig {
     static getGatewayConfig(
         configService: ConfigService,
@@ -87,7 +89,8 @@ export class GatewayConfig {
                     }),
                 }),
                 context: ({ req }: IContext) => {
-                    console.log('IP', req.ip)
+                    // requests++
+                    // console.log(requests)
                     try {
                         if (req.headers.authorization) {
                             return {

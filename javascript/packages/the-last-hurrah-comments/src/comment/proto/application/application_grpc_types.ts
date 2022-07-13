@@ -1,11 +1,20 @@
 import { Observable } from 'rxjs'
-import { IActionComplete } from '../common-grpc.types'
+
+export interface IActionComplete {
+    success: boolean
+    message: string
+}
 
 export interface IApplicationService {
-    updateThreadIds: (args: IUpdateThreadIdsArgs) => Observable<IActionComplete>
     findOneApplicationById: (
-        args: IApplicationId,
+        applicationId: ApplicationId,
     ) => Observable<IApplicationDto>
+    findOneApplicationByShortName: (
+        args: IApplicationShortNameArgs,
+    ) => Observable<IApplicationDto>
+    updateCommentersUsersIds: (
+        args: UpdateCommentersUsersIdsArgs,
+    ) => Observable<IActionComplete>
     checkValidUser: (
         args: ICheckValidUserArgs,
     ) => Observable<ICheckValidUserResponse>
@@ -24,29 +33,38 @@ export interface ICheckValidUserResponse {
     application_id: string
 }
 
-export interface IApplicationId {
+export interface UpdateThreadCommentersIdsArgs {
+    thread_id: string
+    user_id: string
+}
+
+export interface UpdateCommentersUsersIdsArgs {
+    application_id: string
+    user_id: string
+}
+
+export interface ApplicationId {
     id: string
+}
+
+export enum PreCommentModeration {
+    ALL,
+    NEW_COMMENTS,
+    NONE,
 }
 
 export interface IApplicationDto {
     id: string
     moderators_ids: string[]
-    application_owner_id: string
-    pre_comment_moderation: PRE_COMMENT_MODERATION
+    pre_comment_moderation: PreCommentModeration
     application_name: string
     commenters_users_ids: string[]
     email_mods_when_comments_flagged: boolean
     links_in_comments: boolean
     allow_images_and_videos_on_comments: boolean
+    application_owner_id: string
 }
 
-export interface IUpdateThreadIdsArgs {
-    thread_ids: string[]
-    application_id: string
-}
-
-interface PRE_COMMENT_MODERATION {
-    NONE: 'NONE'
-    NEW_COMMENTS: 'NEW_COMMENTS'
-    ALL: 'ALL'
+export interface IApplicationShortNameArgs {
+    short_name: string
 }

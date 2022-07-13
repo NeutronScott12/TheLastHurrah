@@ -1,6 +1,7 @@
 import { CacheModuleAsyncOptions, CacheModuleOptions } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import * as redisStore from 'cache-manager-redis-store'
+import { configOptions } from './config'
 
 class CacheConfig {
     static getCacheConfig(configService: ConfigService): CacheModuleOptions {
@@ -15,7 +16,7 @@ class CacheConfig {
 }
 
 export const cacheConfigAsync: CacheModuleAsyncOptions = {
-    imports: [ConfigService],
+    imports: [ConfigModule.forRoot(configOptions)],
     useFactory: (ConfigService: ConfigService) =>
         CacheConfig.getCacheConfig(ConfigService),
     inject: [ConfigService],

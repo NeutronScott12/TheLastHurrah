@@ -1,6 +1,6 @@
 {
     "name": "@thelasthurrah/the-last-hurrah-shared",
-    "version": "0.1.25",
+    "version": "0.1.26",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "license": "MIT",
@@ -20,7 +20,7 @@
         "test:e2e": "jest --config ./test/jest-e2e.json"
     },
     "devDependencies": {
-        "@types/jest": "^28.1.4",
+        "@types/jest": "^28.1.5",
         "@types/node": "^18.0.3",
         "@types/supertest": "^2.0.12",
         "@typescript-eslint/eslint-plugin": "^5.30.6",

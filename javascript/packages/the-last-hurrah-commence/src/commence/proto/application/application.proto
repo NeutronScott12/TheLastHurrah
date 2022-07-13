@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package application;
+
+service ApplicationService {
+    rpc setAuthenticatedUser(SetApplicationUserArgs) returns (ActionComplete);
+    rpc removeAuthenticatedUser(RemoveApplicationUserArgs) returns (ActionComplete) {}
+    rpc removeUserFromAllApplications(RemoveUserFromAllApplications) returns (ActionComplete) {}
+    rpc checkValidUser(CheckValidUserArgs) returns (CheckValidUserResponse) {}
+}
+
+message CheckValidUserArgs {
+    string application_id = 1;
+    string application_short_name = 2;
+    string user_id = 3;
+}
+
+message RemoveUserFromAllApplications {
+    string user_id = 1;
+    repeated string application_ids = 2;
+}
+
+message SetApplicationUserArgs {
+    string application_id = 1;
+    string user_id = 2;
+    string application_short_name = 3;
+}
+
+message RemoveApplicationUserArgs {
+    string application_id = 1;
+    string user_id = 2;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}
+
+message CheckValidUserResponse {
+    bool success = 1;
+    string message = 2;
+    string auth_secret = 3;
+    string application_id = 4;
+}

@@ -58,8 +58,8 @@ export interface RemoveUserFromAllApplications {
 
 export interface ICheckValidUserArgs {
     user_id: string
-    application_short_name: string
-    application_id: string
+    application_short_name?: string
+    application_id?: string
 }
 
 export interface ICheckValidUserResponse {

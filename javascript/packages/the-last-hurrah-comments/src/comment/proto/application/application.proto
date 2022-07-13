@@ -3,9 +3,28 @@ syntax = "proto3";
 package application;
 
 service ApplicationService {
+    rpc checkValidUser(CheckValidUserArgs) returns (CheckValidUserResponse) {}
     rpc findOneApplicationById(ApplicationId) returns (Application) {}
     rpc findOneApplicationByShortName(ApplicationShortNameArgs) returns (Application) {}
     rpc updateCommentersUsersIds(UpdateCommentersUsersIdsArgs) returns (ActionComplete) {}
+}
+
+message CheckValidUserArgs {
+    string application_id = 1;
+    string application_short_name = 2;
+    string user_id = 3;
+}
+
+message ActionComplete {
+    bool success = 1;
+    string message = 2;
+}
+
+message CheckValidUserResponse {
+    bool success = 1;
+    string message = 2;
+    string auth_secret = 3;
+    string application_id = 4;
 }
 
 message UpdateCommentersUsersIdsArgs {
@@ -37,9 +56,4 @@ message Application {
     bool allow_images_and_videos_on_comments = 8;
     string application_owner_id = 9;
     repeated string authenticated_users_ids = 10;
-}
-
-message ActionComplete {
-    bool success = 1;
-    string message = 2;
 }

@@ -1,20 +1,24 @@
 import { CacheModule, Module } from '@nestjs/common'
 import { PassportModule } from '@nestjs/passport'
 import { JwtModule } from '@nestjs/jwt'
-//@ts-ignore
+import { ClientsModule } from '@nestjs/microservices'
+
 import { asyncJwtOptions } from 'src/configs/jwt.config'
 import { ConfigService } from '@nestjs/config'
 import { cacheConfigAsync } from 'src/configs/cache.config'
-import { JwtStrategy } from '@thelasthurrah/the-last-hurrah-shared'
 import { HttpModule } from '@nestjs/axios'
+import { JwtStrategy } from './JwtStrategy'
+import { grpClient } from '../configs/grpc.config'
+import { ApplicationGrpcService } from '../thread/services/application-grpc.service'
 
 @Module({
     imports: [
         PassportModule,
+        ClientsModule.register(grpClient),
         JwtModule.registerAsync(asyncJwtOptions),
         CacheModule.registerAsync(cacheConfigAsync),
         HttpModule,
     ],
-    providers: [JwtStrategy, ConfigService],
+    providers: [JwtStrategy, ConfigService, ApplicationGrpcService],
 })
 export class AuthModule {}

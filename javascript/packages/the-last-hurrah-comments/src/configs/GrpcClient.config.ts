@@ -59,7 +59,10 @@ export const GrpcClientOptions: ClientsModuleOptions = [
             },
             url: `${url}:50051`,
             package: 'application',
-            protoPath: join(__dirname, '../comment/proto/application.proto'),
+            protoPath: join(
+                __dirname,
+                '../comment/proto/application/application.proto',
+            ),
         },
     },
 ]

@@ -5,7 +5,6 @@ import { ConfigModule } from '@nestjs/config'
 import { GraphQLModule } from '@nestjs/graphql'
 import { ClientsModule } from '@nestjs/microservices'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { AuthModule } from '@thelasthurrah/the-last-hurrah-shared'
 
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
@@ -18,6 +17,7 @@ import { AsyncMailOptions } from './configs/mailer.config'
 import { PrismaService } from './prisma/prisma.service'
 
 import * as redisStore from 'cache-manager-redis-store'
+import { AuthModule } from './auth/auth.module'
 
 @Module({
     imports: [

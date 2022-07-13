@@ -40,7 +40,9 @@ class GraphqlConfig {
                 )
 
                 const pubSub: RedisPubSub = new RedisPubSub({
+                    //@ts-ignore
                     publisher: redis,
+                    //@ts-ignore
                     subscriber: redis,
                 })
 

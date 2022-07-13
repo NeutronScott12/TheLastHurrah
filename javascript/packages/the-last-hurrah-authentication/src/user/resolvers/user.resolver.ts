@@ -95,7 +95,6 @@ export class UserResolver {
     @UseGuards(GqlAuthGuard)
     @Query(() => UserModel)
     async current_user(@CurrentUser() current_user: ICurrentUser) {
-        console.log('CURRENT_USER', current_user)
         const response = await this.userService.findUniqueUser({
             where: {
                 id: current_user.user_id,

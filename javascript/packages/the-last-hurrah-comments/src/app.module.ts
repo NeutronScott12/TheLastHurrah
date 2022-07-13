@@ -5,7 +5,6 @@ import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bull'
 import { TerminusModule } from '@nestjs/terminus'
 import { MailerModule } from '@nestjs-modules/mailer'
-import { AuthModule } from '@thelasthurrah/the-last-hurrah-shared'
 
 import { AppController } from './app.controller'
 import { CommentModule } from './comment/comment.module'
@@ -19,6 +18,7 @@ import { AsyncMailOptions } from './configs/mail.config'
 
 import * as redisStore from 'cache-manager-redis-store'
 import { cacheConfigAsync } from './configs/cache.config'
+import { AuthModule } from './auth/auth.module'
 @Module({
     imports: [
         CacheModule.registerAsync(cacheConfigAsync),

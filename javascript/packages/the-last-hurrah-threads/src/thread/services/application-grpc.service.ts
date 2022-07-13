@@ -4,13 +4,15 @@ import {
     InternalServerErrorException,
     OnModuleInit,
 } from '@nestjs/common'
-import { ClientGrpc } from '@nestjs/microservices'
+import { ClientGrpc, RpcException } from '@nestjs/microservices'
 import { lastValueFrom } from 'rxjs'
 import { APPLICATION_GRPC_SERVER, APPLICATION_PACKAGE } from 'src/constants'
 import {
     IApplicationDto,
     IApplicationId,
     IApplicationService,
+    ICheckValidUserArgs,
+    ICheckValidUserResponse,
     IUpdateThreadIdsArgs,
 } from '../proto/application/application-grpc.types'
 import { IActionComplete } from '../proto/common-grpc.types'
@@ -26,6 +28,18 @@ export class ApplicationGrpcService implements OnModuleInit {
             this.grpcClient.getService<IApplicationService>(
                 APPLICATION_GRPC_SERVER,
             )
+    }
+
+    async checkValidUser(
+        args: ICheckValidUserArgs,
+    ): Promise<ICheckValidUserResponse> {
+        try {
+            const response = this.applicationService.checkValidUser(args)
+
+            return lastValueFrom(response)
+        } catch (error) {
+            throw new RpcException({ success: false, message: error.message })
+        }
     }
 
     async findApplicationById({

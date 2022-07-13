@@ -5,6 +5,20 @@ package application;
 service ApplicationService {
     rpc updateThreadIds(UpdateThreadIdsArgs) returns (ActionComplete);
     rpc findOneApplicationById(ApplicationId) returns (Application);
+    rpc checkValidUser(CheckValidUserArgs) returns (CheckValidUserResponse);
+}
+
+message CheckValidUserArgs {
+    string application_id = 1;
+    string application_short_name = 2;
+    string user_id = 3;
+}
+
+message CheckValidUserResponse {
+    bool success = 1;
+    string message = 2;
+    string auth_secret = 3;
+    string application_id = 4;
 }
 
 message ApplicationId {

@@ -13,3 +13,4 @@ services:
             - 'host.docker.internal:host-gateway'
         ports:
             - '4002:4002'
+            - '50056:50056'

@@ -16,7 +16,8 @@ import { cacheConfigAsync } from './configs/cache.config'
 // import { AuthModule } from '@thelasthurrah/the-last-hurrah-shared'
 
 import * as redisStore from 'cache-manager-redis-store'
-import { AuthModule } from '@thelasthurrah/the-last-hurrah-shared'
+import { AuthModule } from './auth/auth.module'
+// import { AuthModule } from '@thelasthurrah/the-last-hurrah-shared'
 
 @Module({
     imports: [
