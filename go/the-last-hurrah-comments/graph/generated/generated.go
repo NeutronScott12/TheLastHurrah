@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"lasthurrah/graph/model"
 	"strconv"
 	"sync"
@@ -50,14 +51,11 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	ApplicationModel struct {
 		AuthenticatedUsersIds func(childComplexity int) int
+		BannedUsersByID       func(childComplexity int) int
 		Comments              func(childComplexity int) int
 		ID                    func(childComplexity int) int
 		ModeratorsIds         func(childComplexity int) int
-	}
-
-	CommentAndVoteCountEntity struct {
-		CommentCount func(childComplexity int) int
-		VoteCount    func(childComplexity int) int
+		ThreadIds             func(childComplexity int) int
 	}
 
 	CommentModel struct {
@@ -68,6 +66,7 @@ type ComplexityRoot struct {
 		CreatedAt          func(childComplexity int) int
 		Deleted            func(childComplexity int) int
 		DownVote           func(childComplexity int) int
+		Edited             func(childComplexity int) int
 		Flagged            func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		JSONBody           func(childComplexity int) int
@@ -77,12 +76,22 @@ type ComplexityRoot struct {
 		PrivateInformation func(childComplexity int) int
 		RepliedToID        func(childComplexity int) int
 		Replies            func(childComplexity int) int
+		ReplyNotification  func(childComplexity int) int
 		Reports            func(childComplexity int) int
 		ThreadID           func(childComplexity int) int
 		ThreateningContent func(childComplexity int) int
 		UpVote             func(childComplexity int) int
 		UpdatedAt          func(childComplexity int) int
 		UserID             func(childComplexity int) int
+	}
+
+	CommentStatsEntity struct {
+		CommentsPerDay func(childComplexity int) int
+	}
+
+	CommentsPerDay struct {
+		Count func(childComplexity int) int
+		Date  func(childComplexity int) int
 	}
 
 	CountModel struct {
@@ -101,12 +110,12 @@ type ComplexityRoot struct {
 		CommentsCount func(childComplexity int) int
 	}
 
-	FetchCommentByThreadIDResponse struct {
+	FetchCommentByThreadIdResponse struct {
 		Comments      func(childComplexity int) int
 		CommentsCount func(childComplexity int) int
 	}
 
-	FetchCommentsByApplicationID struct {
+	FetchCommentsByApplicationId struct {
 		Comments      func(childComplexity int) int
 		CommentsCount func(childComplexity int) int
 	}
@@ -119,6 +128,7 @@ type ComplexityRoot struct {
 		CreateReport          func(childComplexity int, createReportInput model.CreateReportInput) int
 		DeleteComment         func(childComplexity int, commentID string) int
 		DeleteManyComments    func(childComplexity int, deleteManyCommentsInput model.DeleteManyCommentsInput) int
+		DeleteReportByID      func(childComplexity int, id string) int
 		DownVoteComment       func(childComplexity int, commentID string) int
 		UpVoteComment         func(childComplexity int, commentID string) int
 		UpdateComment         func(childComplexity int, updateCommentInput model.UpdateCommentInput) int
@@ -130,7 +140,8 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		FetchCommentAndVoteCount            func(childComplexity int, fetchCommentAndVoteCountInput model.FetchCommentAndVoteCountInput) int
+		FetchAllReports                     func(childComplexity int) int
+		FetchCommentStats                   func(childComplexity int, fetchCommentStatsInput model.FetchCommentStatsInput) int
 		FetchComments                       func(childComplexity int) int
 		FetchCommentsByApplicationID        func(childComplexity int, fetchCommentsByApplicationID model.FetchCommentsByApplicationIDInput) int
 		FetchCommentsByApplicationShortName func(childComplexity int, fetchCommentsByApplicationShortNameInput model.FetchCommentsByApplicationShortNameInput) int
@@ -156,11 +167,12 @@ type ComplexityRoot struct {
 	}
 
 	ThreadModel struct {
+		ApplicationID      func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		PinnedComment      func(childComplexity int) int
 		PinnedCommentID    func(childComplexity int) int
 		SubscribedUsersIds func(childComplexity int) int
-		ThreadComments     func(childComplexity int, fetchThreadCommentsBySort model.FetchThreadCommentsBySort, commentsByUserIDInput *model.CommentsByUserIDInput) int
+		ThreadComments     func(childComplexity int, commentsByUserIDInput *model.CommentsByUserIDInput, fetchThreadCommentsBySort model.FetchThreadCommentsBySort) int
 	}
 
 	UserModel struct {
@@ -178,6 +190,7 @@ type MutationResolver interface {
 	UpVoteComment(ctx context.Context, commentID string) (*model.CommentModel, error)
 	DownVoteComment(ctx context.Context, commentID string) (*model.CommentModel, error)
 	CreateReport(ctx context.Context, createReportInput model.CreateReportInput) (*model.StandardResponseModel, error)
+	DeleteReportByID(ctx context.Context, id string) (*model.StandardResponseModel, error)
 	ApproveComments(ctx context.Context, approveCommentsInput model.ApproveCommentsInput) (*model.StandardResponseModel, error)
 }
 type QueryResolver interface {
@@ -185,7 +198,8 @@ type QueryResolver interface {
 	FetchCommentsByApplicationID(ctx context.Context, fetchCommentsByApplicationID model.FetchCommentsByApplicationIDInput) (*model.FetchCommentsByApplicationID, error)
 	FetchCommentsByApplicationShortName(ctx context.Context, fetchCommentsByApplicationShortNameInput model.FetchCommentsByApplicationShortNameInput) (*model.FetchCommentByApplicationName, error)
 	FetchComments(ctx context.Context) (*model.FetchAllComments, error)
-	FetchCommentAndVoteCount(ctx context.Context, fetchCommentAndVoteCountInput model.FetchCommentAndVoteCountInput) (*model.CommentAndVoteCountEntity, error)
+	FetchAllReports(ctx context.Context) ([]*model.ReportModel, error)
+	FetchCommentStats(ctx context.Context, fetchCommentStatsInput model.FetchCommentStatsInput) (*model.CommentStatsEntity, error)
 }
 
 type executableSchema struct {
@@ -210,6 +224,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ApplicationModel.AuthenticatedUsersIds(childComplexity), true
 
+	case "ApplicationModel.banned_users_by_id":
+		if e.complexity.ApplicationModel.BannedUsersByID == nil {
+			break
+		}
+
+		return e.complexity.ApplicationModel.BannedUsersByID(childComplexity), true
+
 	case "ApplicationModel.comments":
 		if e.complexity.ApplicationModel.Comments == nil {
 			break
@@ -231,19 +252,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ApplicationModel.ModeratorsIds(childComplexity), true
 
-	case "CommentAndVoteCountEntity.comment_count":
-		if e.complexity.CommentAndVoteCountEntity.CommentCount == nil {
+	case "ApplicationModel.thread_ids":
+		if e.complexity.ApplicationModel.ThreadIds == nil {
 			break
 		}
 
-		return e.complexity.CommentAndVoteCountEntity.CommentCount(childComplexity), true
-
-	case "CommentAndVoteCountEntity.vote_count":
-		if e.complexity.CommentAndVoteCountEntity.VoteCount == nil {
-			break
-		}
-
-		return e.complexity.CommentAndVoteCountEntity.VoteCount(childComplexity), true
+		return e.complexity.ApplicationModel.ThreadIds(childComplexity), true
 
 	case "CommentModel.application_id":
 		if e.complexity.CommentModel.ApplicationID == nil {
@@ -294,6 +308,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CommentModel.DownVote(childComplexity), true
 
+	case "CommentModel.edited":
+		if e.complexity.CommentModel.Edited == nil {
+			break
+		}
+
+		return e.complexity.CommentModel.Edited(childComplexity), true
+
 	case "CommentModel.flagged":
 		if e.complexity.CommentModel.Flagged == nil {
 			break
@@ -301,7 +322,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CommentModel.Flagged(childComplexity), true
 
-	case "CommentModel.ID":
+	case "CommentModel.id":
 		if e.complexity.CommentModel.ID == nil {
 			break
 		}
@@ -329,7 +350,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CommentModel.Pending(childComplexity), true
 
-	case "CommentModel.PlainTextBody":
+	case "CommentModel.plain_text_body":
 		if e.complexity.CommentModel.PlainTextBody == nil {
 			break
 		}
@@ -356,6 +377,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.CommentModel.Replies(childComplexity), true
+
+	case "CommentModel.reply_notification":
+		if e.complexity.CommentModel.ReplyNotification == nil {
+			break
+		}
+
+		return e.complexity.CommentModel.ReplyNotification(childComplexity), true
 
 	case "CommentModel.reports":
 		if e.complexity.CommentModel.Reports == nil {
@@ -399,6 +427,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CommentModel.UserID(childComplexity), true
 
+	case "CommentStatsEntity.comments_per_day":
+		if e.complexity.CommentStatsEntity.CommentsPerDay == nil {
+			break
+		}
+
+		return e.complexity.CommentStatsEntity.CommentsPerDay(childComplexity), true
+
+	case "CommentsPerDay.count":
+		if e.complexity.CommentsPerDay.Count == nil {
+			break
+		}
+
+		return e.complexity.CommentsPerDay.Count(childComplexity), true
+
+	case "CommentsPerDay.date":
+		if e.complexity.CommentsPerDay.Date == nil {
+			break
+		}
+
+		return e.complexity.CommentsPerDay.Date(childComplexity), true
+
 	case "CountModel.down_vote":
 		if e.complexity.CountModel.DownVote == nil {
 			break
@@ -420,14 +469,14 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CountModel.UpVote(childComplexity), true
 
-	case "FetchAllComments.Comments":
+	case "FetchAllComments.comments":
 		if e.complexity.FetchAllComments.Comments == nil {
 			break
 		}
 
 		return e.complexity.FetchAllComments.Comments(childComplexity), true
 
-	case "FetchAllComments.CommentsCount":
+	case "FetchAllComments.comments_count":
 		if e.complexity.FetchAllComments.CommentsCount == nil {
 			break
 		}
@@ -449,32 +498,32 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		return e.complexity.FetchCommentByApplicationName.CommentsCount(childComplexity), true
 
 	case "FetchCommentByThreadIdResponse.comments":
-		if e.complexity.FetchCommentByThreadIDResponse.Comments == nil {
+		if e.complexity.FetchCommentByThreadIdResponse.Comments == nil {
 			break
 		}
 
-		return e.complexity.FetchCommentByThreadIDResponse.Comments(childComplexity), true
+		return e.complexity.FetchCommentByThreadIdResponse.Comments(childComplexity), true
 
 	case "FetchCommentByThreadIdResponse.comments_count":
-		if e.complexity.FetchCommentByThreadIDResponse.CommentsCount == nil {
+		if e.complexity.FetchCommentByThreadIdResponse.CommentsCount == nil {
 			break
 		}
 
-		return e.complexity.FetchCommentByThreadIDResponse.CommentsCount(childComplexity), true
+		return e.complexity.FetchCommentByThreadIdResponse.CommentsCount(childComplexity), true
 
 	case "FetchCommentsByApplicationId.comments":
-		if e.complexity.FetchCommentsByApplicationID.Comments == nil {
+		if e.complexity.FetchCommentsByApplicationId.Comments == nil {
 			break
 		}
 
-		return e.complexity.FetchCommentsByApplicationID.Comments(childComplexity), true
+		return e.complexity.FetchCommentsByApplicationId.Comments(childComplexity), true
 
 	case "FetchCommentsByApplicationId.comments_count":
-		if e.complexity.FetchCommentsByApplicationID.CommentsCount == nil {
+		if e.complexity.FetchCommentsByApplicationId.CommentsCount == nil {
 			break
 		}
 
-		return e.complexity.FetchCommentsByApplicationID.CommentsCount(childComplexity), true
+		return e.complexity.FetchCommentsByApplicationId.CommentsCount(childComplexity), true
 
 	case "Mutation.approve_comments":
 		if e.complexity.Mutation.ApproveComments == nil {
@@ -498,7 +547,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.ChangeCommentSettings(childComplexity, args["ChangeCommentSettingsInput"].(model.ChangeCommentSettingsInput)), true
+		return e.complexity.Mutation.ChangeCommentSettings(childComplexity, args["changeCommentSettingsInput"].(model.ChangeCommentSettingsInput)), true
 
 	case "Mutation.create_comment":
 		if e.complexity.Mutation.CreateComment == nil {
@@ -560,6 +609,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.DeleteManyComments(childComplexity, args["deleteManyCommentsInput"].(model.DeleteManyCommentsInput)), true
 
+	case "Mutation.delete_report_by_id":
+		if e.complexity.Mutation.DeleteReportByID == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_delete_report_by_id_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteReportByID(childComplexity, args["id"].(string)), true
+
 	case "Mutation.down_vote_comment":
 		if e.complexity.Mutation.DownVoteComment == nil {
 			break
@@ -610,17 +671,24 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ProfileEntity.ProfileComments(childComplexity), true
 
-	case "Query.fetch_comment_and_vote_count":
-		if e.complexity.Query.FetchCommentAndVoteCount == nil {
+	case "Query.fetch_all_reports":
+		if e.complexity.Query.FetchAllReports == nil {
 			break
 		}
 
-		args, err := ec.field_Query_fetch_comment_and_vote_count_args(context.TODO(), rawArgs)
+		return e.complexity.Query.FetchAllReports(childComplexity), true
+
+	case "Query.fetch_comment_stats":
+		if e.complexity.Query.FetchCommentStats == nil {
+			break
+		}
+
+		args, err := ec.field_Query_fetch_comment_stats_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.FetchCommentAndVoteCount(childComplexity, args["fetchCommentAndVoteCountInput"].(model.FetchCommentAndVoteCountInput)), true
+		return e.complexity.Query.FetchCommentStats(childComplexity, args["fetchCommentStatsInput"].(model.FetchCommentStatsInput)), true
 
 	case "Query.fetch_comments":
 		if e.complexity.Query.FetchComments == nil {
@@ -728,6 +796,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.StandardResponseModel.Success(childComplexity), true
 
+	case "ThreadModel.application_id":
+		if e.complexity.ThreadModel.ApplicationID == nil {
+			break
+		}
+
+		return e.complexity.ThreadModel.ApplicationID(childComplexity), true
+
 	case "ThreadModel.id":
 		if e.complexity.ThreadModel.ID == nil {
 			break
@@ -766,7 +841,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.ThreadModel.ThreadComments(childComplexity, args["fetchThreadCommentsBySort"].(model.FetchThreadCommentsBySort), args["commentsByUserIdInput"].(*model.CommentsByUserIDInput)), true
+		return e.complexity.ThreadModel.ThreadComments(childComplexity, args["commentsByUserIdInput"].(*model.CommentsByUserIDInput), args["fetchThreadCommentsBySort"].(model.FetchThreadCommentsBySort)), true
 
 	case "UserModel.id":
 		if e.complexity.UserModel.ID == nil {
@@ -782,6 +857,21 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e}
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputApproveCommentsInput,
+		ec.unmarshalInputChangeCommentSettingsInput,
+		ec.unmarshalInputCommentsByUserIdInput,
+		ec.unmarshalInputCreateCommentInput,
+		ec.unmarshalInputCreateReplyCommentInput,
+		ec.unmarshalInputCreateReportInput,
+		ec.unmarshalInputDeleteManyCommentsInput,
+		ec.unmarshalInputFetchCommentByThreadIdInput,
+		ec.unmarshalInputFetchCommentStatsInput,
+		ec.unmarshalInputFetchCommentsByApplicationIdInput,
+		ec.unmarshalInputFetchCommentsByApplicationShortNameInput,
+		ec.unmarshalInputFetchThreadCommentsBySort,
+		ec.unmarshalInputUpdateCommentInput,
+	)
 	first := true
 
 	switch rc.Operation.Operation {
@@ -791,6 +881,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 				return nil
 			}
 			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Query(ctx, rc.Operation.SelectionSet)
 			var buf bytes.Buffer
 			data.MarshalGQL(&buf)
@@ -805,6 +896,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 				return nil
 			}
 			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Mutation(ctx, rc.Operation.SelectionSet)
 			var buf bytes.Buffer
 			data.MarshalGQL(&buf)
@@ -839,9 +931,9 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "graph/schema.graphqls", Input: `# GraphQL schema example
-#
-# https://gqlgen.com/getting-started/
+	{Name: "../schema.graphqls", Input: `# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
 
 directive @key(fields: String!) on OBJECT | INTERFACE
 
@@ -890,16 +982,18 @@ type UserModel {
 }
 
 type CommentModel {
-    ID: String!
+    id: String!
     created_at: DateTime!
     updated_at: DateTime!
     author: UserModel!
     thread_id: String!
     parent_id: String
-    PlainTextBody: String!
+    plain_text_body: String!
     json_body: [JSON!]!
     up_vote: [RatingModel!]!
     down_vote: [RatingModel!]!
+    edited: Boolean!
+    reply_notification: Boolean!
     threatening_content: Boolean!
     private_information: Boolean!
     deleted: Boolean!
@@ -915,17 +1009,20 @@ type CommentModel {
 }
 
 """
-The ` + "`" + `JSONObject` + "`" + ` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+The ` + "`" + `JSON` + "`" + ` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSON
+    @specifiedBy(
+        url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf"
+    )
 
 type FetchAllComments {
-    CommentsCount: Int!
-    Comments: [CommentModel!]!
+    comments_count: Int!
+    comments: [CommentModel!]!
 }
 
 type FetchCommentByThreadIdResponse {
-    comments_count: Float!
+    comments_count: Int!
     comments: [CommentModel!]!
 }
 
@@ -935,12 +1032,12 @@ type StandardResponseModel {
 }
 
 type FetchCommentsByApplicationId {
-    comments_count: Float!
+    comments_count: Int!
     comments: [CommentModel!]!
 }
 
 type FetchCommentByApplicationName {
-    comments_count: Float!
+    comments_count: Int!
     comments: [CommentModel!]!
 }
 
@@ -948,6 +1045,8 @@ type ApplicationModel {
     id: String!
     moderators_ids: [String!]!
     authenticated_users_ids: [String!]!
+    thread_ids: [String!]!
+    banned_users_by_id: [String!]!
     comments: [CommentModel!]!
 }
 
@@ -957,12 +1056,17 @@ type ThreadModel {
     """
     id: String!
     pinned_comment_id: String
+    application_id: String!
     subscribed_users_ids: [String!]!
     pinned_comment: CommentModel
     thread_comments(
-        fetchThreadCommentsBySort: FetchThreadCommentsBySort!
         commentsByUserIdInput: CommentsByUserIdInput
+        fetchThreadCommentsBySort: FetchThreadCommentsBySort!
     ): FetchCommentByThreadIdResponse!
+}
+
+input CommentsByUserIdInput {
+    user_id: String
 }
 
 input FetchThreadCommentsBySort {
@@ -977,18 +1081,18 @@ enum sort {
     TOP_VOTES
 }
 
-input CommentsByUserIdInput {
-    user_id: String
-}
-
-type CommentAndVoteCountEntity {
-    comment_count: Int!
-    vote_count: Int!
-}
-
 type ProfileEntity {
     id: String!
     profile_comments: [CommentModel!]!
+}
+
+type CommentsPerDay {
+    count: Int!
+    date: DateTime!
+}
+
+type CommentStatsEntity {
+    comments_per_day: [CommentsPerDay!]!
 }
 
 type Query {
@@ -1002,9 +1106,10 @@ type Query {
         fetchCommentsByApplicationShortNameInput: FetchCommentsByApplicationShortNameInput!
     ): FetchCommentByApplicationName!
     fetch_comments: FetchAllComments!
-    fetch_comment_and_vote_count(
-        fetchCommentAndVoteCountInput: FetchCommentAndVoteCountInput!
-    ): CommentAndVoteCountEntity!
+    fetch_all_reports: [ReportModel!]!
+    fetch_comment_stats(
+        fetchCommentStatsInput: FetchCommentStatsInput!
+    ): CommentStatsEntity!
 }
 
 input FetchCommentByThreadIdInput {
@@ -1039,8 +1144,9 @@ enum where {
     ALL
 }
 
-input FetchCommentAndVoteCountInput {
-    user_id: String!
+input FetchCommentStatsInput {
+    start_date: DateTime!
+    end_date: DateTime!
 }
 
 type Mutation {
@@ -1054,11 +1160,12 @@ type Mutation {
         deleteManyCommentsInput: DeleteManyCommentsInput!
     ): StandardResponseModel!
     change_comment_settings(
-        ChangeCommentSettingsInput: ChangeCommentSettingsInput!
+        changeCommentSettingsInput: ChangeCommentSettingsInput!
     ): CommentModel!
     up_vote_comment(comment_id: String!): CommentModel!
     down_vote_comment(comment_id: String!): CommentModel!
     create_report(createReportInput: CreateReportInput!): StandardResponseModel!
+    delete_report_by_id(id: String!): StandardResponseModel!
     approve_comments(
         approveCommentsInput: ApproveCommentsInput!
     ): StandardResponseModel!
@@ -1066,14 +1173,14 @@ type Mutation {
 
 input CreateCommentInput {
     plain_text_body: String!
-    json_body: JSON!
+    json_body: [JSON!]!
     application_id: String!
     thread_id: String!
 }
 
 input CreateReplyCommentInput {
     plain_text_body: String!
-    json_body: JSON!
+    json_body: [JSON!]!
     application_id: String!
     thread_id: String!
     parent_id: String!
@@ -1176,14 +1283,14 @@ func (ec *executionContext) field_Mutation_change_comment_settings_args(ctx cont
 	var err error
 	args := map[string]interface{}{}
 	var arg0 model.ChangeCommentSettingsInput
-	if tmp, ok := rawArgs["ChangeCommentSettingsInput"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ChangeCommentSettingsInput"))
+	if tmp, ok := rawArgs["changeCommentSettingsInput"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("changeCommentSettingsInput"))
 		arg0, err = ec.unmarshalNChangeCommentSettingsInput2lasthurrahᚋgraphᚋmodelᚐChangeCommentSettingsInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["ChangeCommentSettingsInput"] = arg0
+	args["changeCommentSettingsInput"] = arg0
 	return args, nil
 }
 
@@ -1262,6 +1369,21 @@ func (ec *executionContext) field_Mutation_delete_many_comments_args(ctx context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_delete_report_by_id_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_down_vote_comment_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -1322,18 +1444,18 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_fetch_comment_and_vote_count_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Query_fetch_comment_stats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.FetchCommentAndVoteCountInput
-	if tmp, ok := rawArgs["fetchCommentAndVoteCountInput"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fetchCommentAndVoteCountInput"))
-		arg0, err = ec.unmarshalNFetchCommentAndVoteCountInput2lasthurrahᚋgraphᚋmodelᚐFetchCommentAndVoteCountInput(ctx, tmp)
+	var arg0 model.FetchCommentStatsInput
+	if tmp, ok := rawArgs["fetchCommentStatsInput"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fetchCommentStatsInput"))
+		arg0, err = ec.unmarshalNFetchCommentStatsInput2lasthurrahᚋgraphᚋmodelᚐFetchCommentStatsInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["fetchCommentAndVoteCountInput"] = arg0
+	args["fetchCommentStatsInput"] = arg0
 	return args, nil
 }
 
@@ -1385,24 +1507,24 @@ func (ec *executionContext) field_Query_fetch_comments_by_thread_id_args(ctx con
 func (ec *executionContext) field_ThreadModel_thread_comments_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.FetchThreadCommentsBySort
-	if tmp, ok := rawArgs["fetchThreadCommentsBySort"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fetchThreadCommentsBySort"))
-		arg0, err = ec.unmarshalNFetchThreadCommentsBySort2lasthurrahᚋgraphᚋmodelᚐFetchThreadCommentsBySort(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["fetchThreadCommentsBySort"] = arg0
-	var arg1 *model.CommentsByUserIDInput
+	var arg0 *model.CommentsByUserIDInput
 	if tmp, ok := rawArgs["commentsByUserIdInput"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commentsByUserIdInput"))
-		arg1, err = ec.unmarshalOCommentsByUserIdInput2ᚖlasthurrahᚋgraphᚋmodelᚐCommentsByUserIDInput(ctx, tmp)
+		arg0, err = ec.unmarshalOCommentsByUserIdInput2ᚖlasthurrahᚋgraphᚋmodelᚐCommentsByUserIDInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["commentsByUserIdInput"] = arg1
+	args["commentsByUserIdInput"] = arg0
+	var arg1 model.FetchThreadCommentsBySort
+	if tmp, ok := rawArgs["fetchThreadCommentsBySort"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fetchThreadCommentsBySort"))
+		arg1, err = ec.unmarshalNFetchThreadCommentsBySort2lasthurrahᚋgraphᚋmodelᚐFetchThreadCommentsBySort(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["fetchThreadCommentsBySort"] = arg1
 	return args, nil
 }
 
@@ -1445,21 +1567,17 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // region    **************************** field.gotpl *****************************
 
 func (ec *executionContext) _ApplicationModel_id(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ApplicationModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -1479,22 +1597,31 @@ func (ec *executionContext) _ApplicationModel_id(ctx context.Context, field grap
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ApplicationModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ApplicationModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ApplicationModel_moderators_ids(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_moderators_ids(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ApplicationModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ModeratorsIds, nil
@@ -1514,22 +1641,31 @@ func (ec *executionContext) _ApplicationModel_moderators_ids(ctx context.Context
 	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ApplicationModel_moderators_ids(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ApplicationModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ApplicationModel_authenticated_users_ids(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_authenticated_users_ids(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ApplicationModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.AuthenticatedUsersIds, nil
@@ -1549,22 +1685,119 @@ func (ec *executionContext) _ApplicationModel_authenticated_users_ids(ctx contex
 	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _ApplicationModel_comments(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_ApplicationModel_authenticated_users_ids(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ApplicationModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ApplicationModel_thread_ids(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_thread_ids(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ThreadIds, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ApplicationModel_thread_ids(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
 		Object:     "ApplicationModel",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   false,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
 	}
+	return fc, nil
+}
 
+func (ec *executionContext) _ApplicationModel_banned_users_by_id(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_banned_users_by_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
 	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BannedUsersByID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ApplicationModel_banned_users_by_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ApplicationModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ApplicationModel_comments(ctx context.Context, field graphql.CollectedField, obj *model.ApplicationModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ApplicationModel_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Comments, nil
@@ -1584,92 +1817,81 @@ func (ec *executionContext) _ApplicationModel_comments(ctx context.Context, fiel
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _CommentAndVoteCountEntity_comment_count(ctx context.Context, field graphql.CollectedField, obj *model.CommentAndVoteCountEntity) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentAndVoteCountEntity",
+func (ec *executionContext) fieldContext_ApplicationModel_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ApplicationModel",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   false,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
 	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.CommentCount, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int)
-	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
+	return fc, nil
 }
 
-func (ec *executionContext) _CommentAndVoteCountEntity_vote_count(ctx context.Context, field graphql.CollectedField, obj *model.CommentAndVoteCountEntity) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentAndVoteCountEntity",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.VoteCount, nil
-	})
+func (ec *executionContext) _CommentModel_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_id(ctx, field)
 	if err != nil {
-		ec.Error(ctx, err)
 		return graphql.Null
 	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int)
-	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _CommentModel_ID(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -1689,22 +1911,31 @@ func (ec *executionContext) _CommentModel_ID(ctx context.Context, field graphql.
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_created_at(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_created_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CreatedAt, nil
@@ -1724,22 +1955,31 @@ func (ec *executionContext) _CommentModel_created_at(ctx context.Context, field 
 	return ec.marshalNDateTime2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_created_at(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DateTime does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_updated_at(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_updated_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UpdatedAt, nil
@@ -1759,22 +1999,31 @@ func (ec *executionContext) _CommentModel_updated_at(ctx context.Context, field 
 	return ec.marshalNDateTime2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_updated_at(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DateTime does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_author(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_author(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Author, nil
@@ -1794,22 +2043,35 @@ func (ec *executionContext) _CommentModel_author(ctx context.Context, field grap
 	return ec.marshalNUserModel2ᚖlasthurrahᚋgraphᚋmodelᚐUserModel(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_author(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_UserModel_id(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UserModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_thread_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_thread_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ThreadID, nil
@@ -1829,22 +2091,31 @@ func (ec *executionContext) _CommentModel_thread_id(ctx context.Context, field g
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_thread_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_parent_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_parent_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ParentID, nil
@@ -1861,22 +2132,31 @@ func (ec *executionContext) _CommentModel_parent_id(ctx context.Context, field g
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _CommentModel_PlainTextBody(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_CommentModel_parent_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentModel_plain_text_body(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.PlainTextBody, nil
@@ -1896,22 +2176,31 @@ func (ec *executionContext) _CommentModel_PlainTextBody(ctx context.Context, fie
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_plain_text_body(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_json_body(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_json_body(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.JSONBody, nil
@@ -1931,22 +2220,31 @@ func (ec *executionContext) _CommentModel_json_body(ctx context.Context, field g
 	return ec.marshalNJSON2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_json_body(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_up_vote(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_up_vote(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UpVote, nil
@@ -1966,22 +2264,37 @@ func (ec *executionContext) _CommentModel_up_vote(ctx context.Context, field gra
 	return ec.marshalNRatingModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐRatingModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_up_vote(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_RatingModel_id(ctx, field)
+			case "author_id":
+				return ec.fieldContext_RatingModel_author_id(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RatingModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_down_vote(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_down_vote(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.DownVote, nil
@@ -2001,22 +2314,125 @@ func (ec *executionContext) _CommentModel_down_vote(ctx context.Context, field g
 	return ec.marshalNRatingModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐRatingModelᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _CommentModel_threatening_content(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_CommentModel_down_vote(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_RatingModel_id(ctx, field)
+			case "author_id":
+				return ec.fieldContext_RatingModel_author_id(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RatingModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentModel_edited(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_edited(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Edited, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CommentModel_edited(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
 		Object:     "CommentModel",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   false,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
 	}
+	return fc, nil
+}
 
+func (ec *executionContext) _CommentModel_reply_notification(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_reply_notification(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
 	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ReplyNotification, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CommentModel_reply_notification(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentModel_threatening_content(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_threatening_content(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ThreateningContent, nil
@@ -2036,22 +2452,31 @@ func (ec *executionContext) _CommentModel_threatening_content(ctx context.Contex
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_threatening_content(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_private_information(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_private_information(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.PrivateInformation, nil
@@ -2071,22 +2496,31 @@ func (ec *executionContext) _CommentModel_private_information(ctx context.Contex
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_private_information(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_deleted(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_deleted(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Deleted, nil
@@ -2106,22 +2540,31 @@ func (ec *executionContext) _CommentModel_deleted(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_deleted(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_flagged(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_flagged(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Flagged, nil
@@ -2141,22 +2584,31 @@ func (ec *executionContext) _CommentModel_flagged(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_flagged(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_pending(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_pending(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Pending, nil
@@ -2176,22 +2628,31 @@ func (ec *executionContext) _CommentModel_pending(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_pending(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_approved(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_approved(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Approved, nil
@@ -2211,22 +2672,31 @@ func (ec *executionContext) _CommentModel_approved(ctx context.Context, field gr
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_approved(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_replied_to_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.RepliedToID, nil
@@ -2243,22 +2713,31 @@ func (ec *executionContext) _CommentModel_replied_to_id(ctx context.Context, fie
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_replied_to_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_user_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_user_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UserID, nil
@@ -2278,22 +2757,31 @@ func (ec *executionContext) _CommentModel_user_id(ctx context.Context, field gra
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_user_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_application_id(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_application_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ApplicationID, nil
@@ -2313,22 +2801,31 @@ func (ec *executionContext) _CommentModel_application_id(ctx context.Context, fi
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_application_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_reports(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_reports(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Reports, nil
@@ -2348,22 +2845,43 @@ func (ec *executionContext) _CommentModel_reports(ctx context.Context, field gra
 	return ec.marshalNReportModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐReportModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_reports(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_ReportModel_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_ReportModel_user_id(ctx, field)
+			case "reason":
+				return ec.fieldContext_ReportModel_reason(ctx, field)
+			case "created_at":
+				return ec.fieldContext_ReportModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_ReportModel_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReportModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel_replies(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel_replies(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Replies, nil
@@ -2383,22 +2901,81 @@ func (ec *executionContext) _CommentModel_replies(ctx context.Context, field gra
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CommentModel_replies(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CommentModel__count(ctx context.Context, field graphql.CollectedField, obj *model.CommentModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentModel__count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CommentModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Count, nil
@@ -2418,22 +2995,177 @@ func (ec *executionContext) _CommentModel__count(ctx context.Context, field grap
 	return ec.marshalNCountModel2ᚖlasthurrahᚋgraphᚋmodelᚐCountModel(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _CountModel_up_vote(ctx context.Context, field graphql.CollectedField, obj *model.CountModel) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_CommentModel__count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "up_vote":
+				return ec.fieldContext_CountModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CountModel_down_vote(ctx, field)
+			case "replies":
+				return ec.fieldContext_CountModel_replies(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CountModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentStatsEntity_comments_per_day(ctx context.Context, field graphql.CollectedField, obj *model.CommentStatsEntity) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentStatsEntity_comments_per_day(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CountModel",
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CommentsPerDay, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.CommentsPerDay)
+	fc.Result = res
+	return ec.marshalNCommentsPerDay2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentsPerDayᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CommentStatsEntity_comments_per_day(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentStatsEntity",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   false,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "count":
+				return ec.fieldContext_CommentsPerDay_count(ctx, field)
+			case "date":
+				return ec.fieldContext_CommentsPerDay_date(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentsPerDay", field.Name)
+		},
 	}
+	return fc, nil
+}
 
+func (ec *executionContext) _CommentsPerDay_count(ctx context.Context, field graphql.CollectedField, obj *model.CommentsPerDay) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentsPerDay_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
 	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Count, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CommentsPerDay_count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentsPerDay",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentsPerDay_date(ctx context.Context, field graphql.CollectedField, obj *model.CommentsPerDay) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CommentsPerDay_date(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Date, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNDateTime2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CommentsPerDay_date(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentsPerDay",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DateTime does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CountModel_up_vote(ctx context.Context, field graphql.CollectedField, obj *model.CountModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CountModel_up_vote(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UpVote, nil
@@ -2453,22 +3185,31 @@ func (ec *executionContext) _CountModel_up_vote(ctx context.Context, field graph
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CountModel_up_vote(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CountModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CountModel_down_vote(ctx context.Context, field graphql.CollectedField, obj *model.CountModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CountModel_down_vote(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CountModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.DownVote, nil
@@ -2488,22 +3229,31 @@ func (ec *executionContext) _CountModel_down_vote(ctx context.Context, field gra
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_CountModel_down_vote(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CountModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CountModel_replies(ctx context.Context, field graphql.CollectedField, obj *model.CountModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CountModel_replies(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "CountModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Replies, nil
@@ -2523,22 +3273,31 @@ func (ec *executionContext) _CountModel_replies(ctx context.Context, field graph
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _FetchAllComments_CommentsCount(ctx context.Context, field graphql.CollectedField, obj *model.FetchAllComments) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_CountModel_replies(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CountModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FetchAllComments_comments_count(ctx context.Context, field graphql.CollectedField, obj *model.FetchAllComments) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchAllComments_comments_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchAllComments",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CommentsCount, nil
@@ -2558,22 +3317,31 @@ func (ec *executionContext) _FetchAllComments_CommentsCount(ctx context.Context,
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _FetchAllComments_Comments(ctx context.Context, field graphql.CollectedField, obj *model.FetchAllComments) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_FetchAllComments_comments_count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchAllComments",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FetchAllComments_comments(ctx context.Context, field graphql.CollectedField, obj *model.FetchAllComments) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchAllComments_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchAllComments",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Comments, nil
@@ -2591,24 +3359,83 @@ func (ec *executionContext) _FetchAllComments_Comments(ctx context.Context, fiel
 	res := resTmp.([]*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FetchAllComments_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchAllComments",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _FetchCommentByApplicationName_comments_count(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentByApplicationName) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentByApplicationName_comments_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentByApplicationName",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CommentsCount, nil
@@ -2623,27 +3450,36 @@ func (ec *executionContext) _FetchCommentByApplicationName_comments_count(ctx co
 		}
 		return graphql.Null
 	}
-	res := resTmp.(float64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FetchCommentByApplicationName_comments_count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentByApplicationName",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _FetchCommentByApplicationName_comments(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentByApplicationName) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentByApplicationName_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentByApplicationName",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Comments, nil
@@ -2661,24 +3497,83 @@ func (ec *executionContext) _FetchCommentByApplicationName_comments(ctx context.
 	res := resTmp.([]*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FetchCommentByApplicationName_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentByApplicationName",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _FetchCommentByThreadIdResponse_comments_count(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentByThreadIDResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentByThreadIdResponse_comments_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentByThreadIdResponse",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CommentsCount, nil
@@ -2693,27 +3588,36 @@ func (ec *executionContext) _FetchCommentByThreadIdResponse_comments_count(ctx c
 		}
 		return graphql.Null
 	}
-	res := resTmp.(float64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FetchCommentByThreadIdResponse_comments_count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentByThreadIdResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _FetchCommentByThreadIdResponse_comments(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentByThreadIDResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentByThreadIdResponse_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentByThreadIdResponse",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Comments, nil
@@ -2733,22 +3637,81 @@ func (ec *executionContext) _FetchCommentByThreadIdResponse_comments(ctx context
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_FetchCommentByThreadIdResponse_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentByThreadIdResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _FetchCommentsByApplicationId_comments_count(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentsByApplicationID) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentsByApplicationId_comments_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentsByApplicationId",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CommentsCount, nil
@@ -2763,27 +3726,36 @@ func (ec *executionContext) _FetchCommentsByApplicationId_comments_count(ctx con
 		}
 		return graphql.Null
 	}
-	res := resTmp.(float64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FetchCommentsByApplicationId_comments_count(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentsByApplicationId",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _FetchCommentsByApplicationId_comments(ctx context.Context, field graphql.CollectedField, obj *model.FetchCommentsByApplicationID) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FetchCommentsByApplicationId_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "FetchCommentsByApplicationId",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Comments, nil
@@ -2803,32 +3775,84 @@ func (ec *executionContext) _FetchCommentsByApplicationId_comments(ctx context.C
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_FetchCommentsByApplicationId_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FetchCommentsByApplicationId",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_create_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_create_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_create_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateComment(rctx, args["CreateCommentInput"].(model.CreateCommentInput))
+		return ec.resolvers.Mutation().CreateComment(rctx, fc.Args["CreateCommentInput"].(model.CreateCommentInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2843,34 +3867,97 @@ func (ec *executionContext) _Mutation_create_comment(ctx context.Context, field 
 	res := resTmp.(*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_create_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_create_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_create_reply_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_create_reply_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_create_reply_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateReplyComment(rctx, args["CreateReplyCommentInput"].(model.CreateReplyCommentInput))
+		return ec.resolvers.Mutation().CreateReplyComment(rctx, fc.Args["CreateReplyCommentInput"].(model.CreateReplyCommentInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2885,34 +3972,97 @@ func (ec *executionContext) _Mutation_create_reply_comment(ctx context.Context, 
 	res := resTmp.(*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_create_reply_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_create_reply_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_update_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_update_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_update_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateComment(rctx, args["UpdateCommentInput"].(model.UpdateCommentInput))
+		return ec.resolvers.Mutation().UpdateComment(rctx, fc.Args["UpdateCommentInput"].(model.UpdateCommentInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2927,34 +4077,97 @@ func (ec *executionContext) _Mutation_update_comment(ctx context.Context, field 
 	res := resTmp.(*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_update_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_update_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_delete_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_delete_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_delete_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteComment(rctx, args["commentId"].(string))
+		return ec.resolvers.Mutation().DeleteComment(rctx, fc.Args["commentId"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2969,34 +4182,53 @@ func (ec *executionContext) _Mutation_delete_comment(ctx context.Context, field 
 	res := resTmp.(*model.StandardResponseModel)
 	fc.Result = res
 	return ec.marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_delete_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_StandardResponseModel_success(ctx, field)
+			case "message":
+				return ec.fieldContext_StandardResponseModel_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StandardResponseModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_delete_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_delete_many_comments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_delete_many_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_delete_many_comments_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteManyComments(rctx, args["deleteManyCommentsInput"].(model.DeleteManyCommentsInput))
+		return ec.resolvers.Mutation().DeleteManyComments(rctx, fc.Args["deleteManyCommentsInput"].(model.DeleteManyCommentsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3011,34 +4243,53 @@ func (ec *executionContext) _Mutation_delete_many_comments(ctx context.Context, 
 	res := resTmp.(*model.StandardResponseModel)
 	fc.Result = res
 	return ec.marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_delete_many_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_StandardResponseModel_success(ctx, field)
+			case "message":
+				return ec.fieldContext_StandardResponseModel_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StandardResponseModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_delete_many_comments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_change_comment_settings(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_change_comment_settings(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_change_comment_settings_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ChangeCommentSettings(rctx, args["ChangeCommentSettingsInput"].(model.ChangeCommentSettingsInput))
+		return ec.resolvers.Mutation().ChangeCommentSettings(rctx, fc.Args["changeCommentSettingsInput"].(model.ChangeCommentSettingsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3053,34 +4304,97 @@ func (ec *executionContext) _Mutation_change_comment_settings(ctx context.Contex
 	res := resTmp.(*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_change_comment_settings(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_change_comment_settings_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_up_vote_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_up_vote_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_up_vote_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpVoteComment(rctx, args["comment_id"].(string))
+		return ec.resolvers.Mutation().UpVoteComment(rctx, fc.Args["comment_id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3095,34 +4409,97 @@ func (ec *executionContext) _Mutation_up_vote_comment(ctx context.Context, field
 	res := resTmp.(*model.CommentModel)
 	fc.Result = res
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_up_vote_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_up_vote_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_down_vote_comment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_down_vote_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_down_vote_comment_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DownVoteComment(rctx, args["comment_id"].(string))
+		return ec.resolvers.Mutation().DownVoteComment(rctx, fc.Args["comment_id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3139,32 +4516,95 @@ func (ec *executionContext) _Mutation_down_vote_comment(ctx context.Context, fie
 	return ec.marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Mutation_down_vote_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_down_vote_comment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_create_report(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_create_report(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_create_report_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateReport(rctx, args["createReportInput"].(model.CreateReportInput))
+		return ec.resolvers.Mutation().CreateReport(rctx, fc.Args["createReportInput"].(model.CreateReportInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3179,34 +4619,114 @@ func (ec *executionContext) _Mutation_create_report(ctx context.Context, field g
 	res := resTmp.(*model.StandardResponseModel)
 	fc.Result = res
 	return ec.marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_create_report(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_StandardResponseModel_success(ctx, field)
+			case "message":
+				return ec.fieldContext_StandardResponseModel_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StandardResponseModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_create_report_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_delete_report_by_id(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_delete_report_by_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteReportByID(rctx, fc.Args["id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.StandardResponseModel)
+	fc.Result = res
+	return ec.marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_delete_report_by_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_StandardResponseModel_success(ctx, field)
+			case "message":
+				return ec.fieldContext_StandardResponseModel_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StandardResponseModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_delete_report_by_id_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_approve_comments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_approve_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_approve_comments_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ApproveComments(rctx, args["approveCommentsInput"].(model.ApproveCommentsInput))
+		return ec.resolvers.Mutation().ApproveComments(rctx, fc.Args["approveCommentsInput"].(model.ApproveCommentsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3223,22 +4743,48 @@ func (ec *executionContext) _Mutation_approve_comments(ctx context.Context, fiel
 	return ec.marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Mutation_approve_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_StandardResponseModel_success(ctx, field)
+			case "message":
+				return ec.fieldContext_StandardResponseModel_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StandardResponseModel", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_approve_comments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ProfileEntity_id(ctx context.Context, field graphql.CollectedField, obj *model.ProfileEntity) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ProfileEntity_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ProfileEntity",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -3258,22 +4804,31 @@ func (ec *executionContext) _ProfileEntity_id(ctx context.Context, field graphql
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ProfileEntity_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProfileEntity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ProfileEntity_profile_comments(ctx context.Context, field graphql.CollectedField, obj *model.ProfileEntity) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ProfileEntity_profile_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ProfileEntity",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ProfileComments, nil
@@ -3293,32 +4848,84 @@ func (ec *executionContext) _ProfileEntity_profile_comments(ctx context.Context,
 	return ec.marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentModelᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ProfileEntity_profile_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProfileEntity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_fetch_comments_by_thread_id(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_comments_by_thread_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_fetch_comments_by_thread_id_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().FetchCommentsByThreadID(rctx, args["fetchCommentByThreadIdInput"].(model.FetchCommentByThreadIDInput))
+		return ec.resolvers.Query().FetchCommentsByThreadID(rctx, fc.Args["fetchCommentByThreadIdInput"].(model.FetchCommentByThreadIDInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3335,32 +4942,51 @@ func (ec *executionContext) _Query_fetch_comments_by_thread_id(ctx context.Conte
 	return ec.marshalNFetchCommentByThreadIdResponse2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentByThreadIDResponse(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Query_fetch_comments_by_thread_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_count":
+				return ec.fieldContext_FetchCommentByThreadIdResponse_comments_count(ctx, field)
+			case "comments":
+				return ec.fieldContext_FetchCommentByThreadIdResponse_comments(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FetchCommentByThreadIdResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_fetch_comments_by_thread_id_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_fetch_comments_by_application_id(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_comments_by_application_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_fetch_comments_by_application_id_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().FetchCommentsByApplicationID(rctx, args["fetchCommentsByApplicationId"].(model.FetchCommentsByApplicationIDInput))
+		return ec.resolvers.Query().FetchCommentsByApplicationID(rctx, fc.Args["fetchCommentsByApplicationId"].(model.FetchCommentsByApplicationIDInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3377,32 +5003,51 @@ func (ec *executionContext) _Query_fetch_comments_by_application_id(ctx context.
 	return ec.marshalNFetchCommentsByApplicationId2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentsByApplicationID(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Query_fetch_comments_by_application_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_count":
+				return ec.fieldContext_FetchCommentsByApplicationId_comments_count(ctx, field)
+			case "comments":
+				return ec.fieldContext_FetchCommentsByApplicationId_comments(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FetchCommentsByApplicationId", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_fetch_comments_by_application_id_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_fetch_comments_by_application_short_name(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_comments_by_application_short_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_fetch_comments_by_application_short_name_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().FetchCommentsByApplicationShortName(rctx, args["fetchCommentsByApplicationShortNameInput"].(model.FetchCommentsByApplicationShortNameInput))
+		return ec.resolvers.Query().FetchCommentsByApplicationShortName(rctx, fc.Args["fetchCommentsByApplicationShortNameInput"].(model.FetchCommentsByApplicationShortNameInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3419,22 +5064,48 @@ func (ec *executionContext) _Query_fetch_comments_by_application_short_name(ctx 
 	return ec.marshalNFetchCommentByApplicationName2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentByApplicationName(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Query_fetch_comments_by_application_short_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_count":
+				return ec.fieldContext_FetchCommentByApplicationName_comments_count(ctx, field)
+			case "comments":
+				return ec.fieldContext_FetchCommentByApplicationName_comments(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FetchCommentByApplicationName", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_fetch_comments_by_application_short_name_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_fetch_comments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Query().FetchComments(rctx)
@@ -3454,32 +5125,40 @@ func (ec *executionContext) _Query_fetch_comments(ctx context.Context, field gra
 	return ec.marshalNFetchAllComments2ᚖlasthurrahᚋgraphᚋmodelᚐFetchAllComments(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Query_fetch_comment_and_vote_count(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_Query_fetch_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_count":
+				return ec.fieldContext_FetchAllComments_comments_count(ctx, field)
+			case "comments":
+				return ec.fieldContext_FetchAllComments_comments(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FetchAllComments", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_fetch_all_reports(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_all_reports(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_fetch_comment_and_vote_count_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().FetchCommentAndVoteCount(rctx, args["fetchCommentAndVoteCountInput"].(model.FetchCommentAndVoteCountInput))
+		return ec.resolvers.Query().FetchAllReports(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3491,37 +5170,110 @@ func (ec *executionContext) _Query_fetch_comment_and_vote_count(ctx context.Cont
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.CommentAndVoteCountEntity)
+	res := resTmp.([]*model.ReportModel)
 	fc.Result = res
-	return ec.marshalNCommentAndVoteCountEntity2ᚖlasthurrahᚋgraphᚋmodelᚐCommentAndVoteCountEntity(ctx, field.Selections, res)
+	return ec.marshalNReportModel2ᚕᚖlasthurrahᚋgraphᚋmodelᚐReportModelᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_Query_fetch_all_reports(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_ReportModel_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_ReportModel_user_id(ctx, field)
+			case "reason":
+				return ec.fieldContext_ReportModel_reason(ctx, field)
+			case "created_at":
+				return ec.fieldContext_ReportModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_ReportModel_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReportModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_fetch_comment_stats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_fetch_comment_stats(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query___type_args(ctx, rawArgs)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().FetchCommentStats(rctx, fc.Args["fetchCommentStatsInput"].(model.FetchCommentStatsInput))
+	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
-	fc.Args = args
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.CommentStatsEntity)
+	fc.Result = res
+	return ec.marshalNCommentStatsEntity2ᚖlasthurrahᚋgraphᚋmodelᚐCommentStatsEntity(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_fetch_comment_stats(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_per_day":
+				return ec.fieldContext_CommentStatsEntity_comments_per_day(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentStatsEntity", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_fetch_comment_stats_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query___type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.introspectType(args["name"].(string))
+		return ec.introspectType(fc.Args["name"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3535,22 +5287,64 @@ func (ec *executionContext) _Query___type(ctx context.Context, field graphql.Col
 	return ec.marshalO__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Query___type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query___type_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query___schema(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.introspectSchema()
@@ -3567,22 +5361,45 @@ func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.C
 	return ec.marshalO__Schema2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐSchema(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_Query___schema(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "description":
+				return ec.fieldContext___Schema_description(ctx, field)
+			case "types":
+				return ec.fieldContext___Schema_types(ctx, field)
+			case "queryType":
+				return ec.fieldContext___Schema_queryType(ctx, field)
+			case "mutationType":
+				return ec.fieldContext___Schema_mutationType(ctx, field)
+			case "subscriptionType":
+				return ec.fieldContext___Schema_subscriptionType(ctx, field)
+			case "directives":
+				return ec.fieldContext___Schema_directives(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RatingModel_id(ctx context.Context, field graphql.CollectedField, obj *model.RatingModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RatingModel_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "RatingModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -3602,22 +5419,31 @@ func (ec *executionContext) _RatingModel_id(ctx context.Context, field graphql.C
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_RatingModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RatingModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RatingModel_author_id(ctx context.Context, field graphql.CollectedField, obj *model.RatingModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RatingModel_author_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "RatingModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.AuthorID, nil
@@ -3637,22 +5463,31 @@ func (ec *executionContext) _RatingModel_author_id(ctx context.Context, field gr
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_RatingModel_author_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RatingModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ReportModel_id(ctx context.Context, field graphql.CollectedField, obj *model.ReportModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ReportModel_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ReportModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -3672,22 +5507,31 @@ func (ec *executionContext) _ReportModel_id(ctx context.Context, field graphql.C
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ReportModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReportModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ReportModel_user_id(ctx context.Context, field graphql.CollectedField, obj *model.ReportModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ReportModel_user_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ReportModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UserID, nil
@@ -3707,22 +5551,31 @@ func (ec *executionContext) _ReportModel_user_id(ctx context.Context, field grap
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ReportModel_user_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReportModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ReportModel_reason(ctx context.Context, field graphql.CollectedField, obj *model.ReportModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ReportModel_reason(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ReportModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Reason, nil
@@ -3742,22 +5595,31 @@ func (ec *executionContext) _ReportModel_reason(ctx context.Context, field graph
 	return ec.marshalNREPORT_REASON2lasthurrahᚋgraphᚋmodelᚐReportReason(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ReportModel_reason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReportModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type REPORT_REASON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ReportModel_created_at(ctx context.Context, field graphql.CollectedField, obj *model.ReportModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ReportModel_created_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ReportModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.CreatedAt, nil
@@ -3777,22 +5639,31 @@ func (ec *executionContext) _ReportModel_created_at(ctx context.Context, field g
 	return ec.marshalNDateTime2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ReportModel_created_at(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReportModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DateTime does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ReportModel_updated_at(ctx context.Context, field graphql.CollectedField, obj *model.ReportModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ReportModel_updated_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ReportModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.UpdatedAt, nil
@@ -3812,22 +5683,31 @@ func (ec *executionContext) _ReportModel_updated_at(ctx context.Context, field g
 	return ec.marshalNDateTime2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ReportModel_updated_at(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReportModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DateTime does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _StandardResponseModel_success(ctx context.Context, field graphql.CollectedField, obj *model.StandardResponseModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StandardResponseModel_success(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "StandardResponseModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Success, nil
@@ -3847,22 +5727,31 @@ func (ec *executionContext) _StandardResponseModel_success(ctx context.Context, 
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_StandardResponseModel_success(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StandardResponseModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _StandardResponseModel_message(ctx context.Context, field graphql.CollectedField, obj *model.StandardResponseModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StandardResponseModel_message(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "StandardResponseModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Message, nil
@@ -3882,22 +5771,31 @@ func (ec *executionContext) _StandardResponseModel_message(ctx context.Context, 
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_StandardResponseModel_message(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StandardResponseModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ThreadModel_id(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ThreadModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -3917,22 +5815,31 @@ func (ec *executionContext) _ThreadModel_id(ctx context.Context, field graphql.C
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ThreadModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ThreadModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ThreadModel_pinned_comment_id(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_pinned_comment_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ThreadModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.PinnedCommentID, nil
@@ -3949,22 +5856,75 @@ func (ec *executionContext) _ThreadModel_pinned_comment_id(ctx context.Context, 
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _ThreadModel_subscribed_users_ids(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext_ThreadModel_pinned_comment_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ThreadModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ThreadModel_application_id(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_application_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ApplicationID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ThreadModel_application_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
 		Object:     "ThreadModel",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   false,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
 	}
+	return fc, nil
+}
 
+func (ec *executionContext) _ThreadModel_subscribed_users_ids(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_subscribed_users_ids(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
 	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.SubscribedUsersIds, nil
@@ -3984,22 +5944,31 @@ func (ec *executionContext) _ThreadModel_subscribed_users_ids(ctx context.Contex
 	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ThreadModel_subscribed_users_ids(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ThreadModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ThreadModel_pinned_comment(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_pinned_comment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ThreadModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.PinnedComment, nil
@@ -4016,29 +5985,81 @@ func (ec *executionContext) _ThreadModel_pinned_comment(ctx context.Context, fie
 	return ec.marshalOCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ThreadModel_pinned_comment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ThreadModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CommentModel_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_CommentModel_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_CommentModel_updated_at(ctx, field)
+			case "author":
+				return ec.fieldContext_CommentModel_author(ctx, field)
+			case "thread_id":
+				return ec.fieldContext_CommentModel_thread_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_CommentModel_parent_id(ctx, field)
+			case "plain_text_body":
+				return ec.fieldContext_CommentModel_plain_text_body(ctx, field)
+			case "json_body":
+				return ec.fieldContext_CommentModel_json_body(ctx, field)
+			case "up_vote":
+				return ec.fieldContext_CommentModel_up_vote(ctx, field)
+			case "down_vote":
+				return ec.fieldContext_CommentModel_down_vote(ctx, field)
+			case "edited":
+				return ec.fieldContext_CommentModel_edited(ctx, field)
+			case "reply_notification":
+				return ec.fieldContext_CommentModel_reply_notification(ctx, field)
+			case "threatening_content":
+				return ec.fieldContext_CommentModel_threatening_content(ctx, field)
+			case "private_information":
+				return ec.fieldContext_CommentModel_private_information(ctx, field)
+			case "deleted":
+				return ec.fieldContext_CommentModel_deleted(ctx, field)
+			case "flagged":
+				return ec.fieldContext_CommentModel_flagged(ctx, field)
+			case "pending":
+				return ec.fieldContext_CommentModel_pending(ctx, field)
+			case "approved":
+				return ec.fieldContext_CommentModel_approved(ctx, field)
+			case "replied_to_id":
+				return ec.fieldContext_CommentModel_replied_to_id(ctx, field)
+			case "user_id":
+				return ec.fieldContext_CommentModel_user_id(ctx, field)
+			case "application_id":
+				return ec.fieldContext_CommentModel_application_id(ctx, field)
+			case "reports":
+				return ec.fieldContext_CommentModel_reports(ctx, field)
+			case "replies":
+				return ec.fieldContext_CommentModel_replies(ctx, field)
+			case "_count":
+				return ec.fieldContext_CommentModel__count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CommentModel", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ThreadModel_thread_comments(ctx context.Context, field graphql.CollectedField, obj *model.ThreadModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ThreadModel_thread_comments(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "ThreadModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_ThreadModel_thread_comments_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ThreadComments, nil
@@ -4058,22 +6079,48 @@ func (ec *executionContext) _ThreadModel_thread_comments(ctx context.Context, fi
 	return ec.marshalNFetchCommentByThreadIdResponse2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentByThreadIDResponse(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_ThreadModel_thread_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ThreadModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "comments_count":
+				return ec.fieldContext_FetchCommentByThreadIdResponse_comments_count(ctx, field)
+			case "comments":
+				return ec.fieldContext_FetchCommentByThreadIdResponse_comments(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FetchCommentByThreadIdResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_ThreadModel_thread_comments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _UserModel_id(ctx context.Context, field graphql.CollectedField, obj *model.UserModel) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UserModel_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "UserModel",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
@@ -4093,22 +6140,31 @@ func (ec *executionContext) _UserModel_id(ctx context.Context, field graphql.Col
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext_UserModel_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserModel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Name, nil
@@ -4128,25 +6184,34 @@ func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Directive_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_description(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Description, nil
+		return obj.Description(), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4155,27 +6220,36 @@ func (ec *executionContext) ___Directive_description(ctx context.Context, field 
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Directive_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___Directive_locations(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_locations(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Locations, nil
@@ -4195,22 +6269,31 @@ func (ec *executionContext) ___Directive_locations(ctx context.Context, field gr
 	return ec.marshalN__DirectiveLocation2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Directive_locations(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type __DirectiveLocation does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_args(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_args(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Args, nil
@@ -4230,22 +6313,41 @@ func (ec *executionContext) ___Directive_args(ctx context.Context, field graphql
 	return ec.marshalN__InputValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐInputValueᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Directive_args(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___InputValue_name(ctx, field)
+			case "description":
+				return ec.fieldContext___InputValue_description(ctx, field)
+			case "type":
+				return ec.fieldContext___InputValue_type(ctx, field)
+			case "defaultValue":
+				return ec.fieldContext___InputValue_defaultValue(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __InputValue", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_isRepeatable(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.IsRepeatable, nil
@@ -4265,22 +6367,31 @@ func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___EnumValue_name(ctx context.Context, field graphql.CollectedField, obj *introspection.EnumValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___EnumValue_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__EnumValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Name, nil
@@ -4300,25 +6411,34 @@ func (ec *executionContext) ___EnumValue_name(ctx context.Context, field graphql
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___EnumValue_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__EnumValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___EnumValue_description(ctx context.Context, field graphql.CollectedField, obj *introspection.EnumValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___EnumValue_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__EnumValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Description, nil
+		return obj.Description(), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4327,27 +6447,36 @@ func (ec *executionContext) ___EnumValue_description(ctx context.Context, field 
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___EnumValue_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__EnumValue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___EnumValue_isDeprecated(ctx context.Context, field graphql.CollectedField, obj *introspection.EnumValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___EnumValue_isDeprecated(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__EnumValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.IsDeprecated(), nil
@@ -4367,22 +6496,31 @@ func (ec *executionContext) ___EnumValue_isDeprecated(ctx context.Context, field
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___EnumValue_isDeprecated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__EnumValue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___EnumValue_deprecationReason(ctx context.Context, field graphql.CollectedField, obj *introspection.EnumValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___EnumValue_deprecationReason(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__EnumValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.DeprecationReason(), nil
@@ -4399,22 +6537,31 @@ func (ec *executionContext) ___EnumValue_deprecationReason(ctx context.Context, 
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___EnumValue_deprecationReason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__EnumValue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Field_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Name, nil
@@ -4434,25 +6581,34 @@ func (ec *executionContext) ___Field_name(ctx context.Context, field graphql.Col
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Field_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Field_description(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Description, nil
+		return obj.Description(), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4461,27 +6617,36 @@ func (ec *executionContext) ___Field_description(ctx context.Context, field grap
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Field_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___Field_args(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_args(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Args, nil
@@ -4501,22 +6666,41 @@ func (ec *executionContext) ___Field_args(ctx context.Context, field graphql.Col
 	return ec.marshalN__InputValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐInputValueᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Field_args(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___InputValue_name(ctx, field)
+			case "description":
+				return ec.fieldContext___InputValue_description(ctx, field)
+			case "type":
+				return ec.fieldContext___InputValue_type(ctx, field)
+			case "defaultValue":
+				return ec.fieldContext___InputValue_defaultValue(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __InputValue", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Field_type(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Type, nil
@@ -4536,22 +6720,53 @@ func (ec *executionContext) ___Field_type(ctx context.Context, field graphql.Col
 	return ec.marshalN__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Field_type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Field_isDeprecated(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_isDeprecated(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.IsDeprecated(), nil
@@ -4571,22 +6786,31 @@ func (ec *executionContext) ___Field_isDeprecated(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Field_isDeprecated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Field_deprecationReason(ctx context.Context, field graphql.CollectedField, obj *introspection.Field) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Field_deprecationReason(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Field",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.DeprecationReason(), nil
@@ -4603,22 +6827,31 @@ func (ec *executionContext) ___Field_deprecationReason(ctx context.Context, fiel
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Field_deprecationReason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Field",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___InputValue_name(ctx context.Context, field graphql.CollectedField, obj *introspection.InputValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___InputValue_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__InputValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Name, nil
@@ -4638,25 +6871,34 @@ func (ec *executionContext) ___InputValue_name(ctx context.Context, field graphq
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___InputValue_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__InputValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___InputValue_description(ctx context.Context, field graphql.CollectedField, obj *introspection.InputValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___InputValue_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__InputValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Description, nil
+		return obj.Description(), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4665,27 +6907,36 @@ func (ec *executionContext) ___InputValue_description(ctx context.Context, field
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___InputValue_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__InputValue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___InputValue_type(ctx context.Context, field graphql.CollectedField, obj *introspection.InputValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___InputValue_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__InputValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Type, nil
@@ -4705,22 +6956,53 @@ func (ec *executionContext) ___InputValue_type(ctx context.Context, field graphq
 	return ec.marshalN__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___InputValue_type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__InputValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___InputValue_defaultValue(ctx context.Context, field graphql.CollectedField, obj *introspection.InputValue) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___InputValue_defaultValue(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__InputValue",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.DefaultValue, nil
@@ -4737,22 +7019,72 @@ func (ec *executionContext) ___InputValue_defaultValue(ctx context.Context, fiel
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) ___Schema_types(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+func (ec *executionContext) fieldContext___InputValue_defaultValue(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__InputValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) ___Schema_description(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Description(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Schema_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
 		Object:     "__Schema",
 		Field:      field,
-		Args:       nil,
 		IsMethod:   true,
 		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
 	}
+	return fc, nil
+}
 
+func (ec *executionContext) ___Schema_types(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_types(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
 	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Types(), nil
@@ -4772,22 +7104,53 @@ func (ec *executionContext) ___Schema_types(ctx context.Context, field graphql.C
 	return ec.marshalN__Type2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐTypeᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Schema_types(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Schema",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Schema_queryType(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_queryType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Schema",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.QueryType(), nil
@@ -4807,22 +7170,53 @@ func (ec *executionContext) ___Schema_queryType(ctx context.Context, field graph
 	return ec.marshalN__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Schema_queryType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Schema",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Schema_mutationType(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_mutationType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Schema",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.MutationType(), nil
@@ -4839,22 +7233,53 @@ func (ec *executionContext) ___Schema_mutationType(ctx context.Context, field gr
 	return ec.marshalO__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Schema_mutationType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Schema",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Schema_subscriptionType(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_subscriptionType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Schema",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.SubscriptionType(), nil
@@ -4871,22 +7296,53 @@ func (ec *executionContext) ___Schema_subscriptionType(ctx context.Context, fiel
 	return ec.marshalO__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Schema_subscriptionType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Schema",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Schema_directives(ctx context.Context, field graphql.CollectedField, obj *introspection.Schema) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Schema_directives(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Schema",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Directives(), nil
@@ -4906,22 +7362,43 @@ func (ec *executionContext) ___Schema_directives(ctx context.Context, field grap
 	return ec.marshalN__Directive2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirectiveᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Schema_directives(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Schema",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___Directive_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Directive_description(ctx, field)
+			case "locations":
+				return ec.fieldContext___Directive_locations(ctx, field)
+			case "args":
+				return ec.fieldContext___Directive_args(ctx, field)
+			case "isRepeatable":
+				return ec.fieldContext___Directive_isRepeatable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Directive", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_kind(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_kind(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Kind(), nil
@@ -4941,22 +7418,31 @@ func (ec *executionContext) ___Type_kind(ctx context.Context, field graphql.Coll
 	return ec.marshalN__TypeKind2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_kind(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type __TypeKind does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Name(), nil
@@ -4973,22 +7459,31 @@ func (ec *executionContext) ___Type_name(ctx context.Context, field graphql.Coll
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_description(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Description(), nil
@@ -5000,37 +7495,39 @@ func (ec *executionContext) ___Type_description(ctx context.Context, field graph
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Type_description(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___Type_fields(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_fields(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field___Type_fields_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Fields(args["includeDeprecated"].(bool)), nil
+		return obj.Fields(fc.Args["includeDeprecated"].(bool)), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5044,22 +7541,56 @@ func (ec *executionContext) ___Type_fields(ctx context.Context, field graphql.Co
 	return ec.marshalO__Field2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐFieldᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_fields(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___Field_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Field_description(ctx, field)
+			case "args":
+				return ec.fieldContext___Field_args(ctx, field)
+			case "type":
+				return ec.fieldContext___Field_type(ctx, field)
+			case "isDeprecated":
+				return ec.fieldContext___Field_isDeprecated(ctx, field)
+			case "deprecationReason":
+				return ec.fieldContext___Field_deprecationReason(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Field", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field___Type_fields_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_interfaces(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_interfaces(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Interfaces(), nil
@@ -5076,22 +7607,53 @@ func (ec *executionContext) ___Type_interfaces(ctx context.Context, field graphq
 	return ec.marshalO__Type2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐTypeᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_interfaces(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_possibleTypes(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_possibleTypes(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.PossibleTypes(), nil
@@ -5108,32 +7670,56 @@ func (ec *executionContext) ___Type_possibleTypes(ctx context.Context, field gra
 	return ec.marshalO__Type2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐTypeᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_possibleTypes(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_enumValues(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_enumValues(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field___Type_enumValues_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.EnumValues(args["includeDeprecated"].(bool)), nil
+		return obj.EnumValues(fc.Args["includeDeprecated"].(bool)), nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5147,22 +7733,52 @@ func (ec *executionContext) ___Type_enumValues(ctx context.Context, field graphq
 	return ec.marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_enumValues(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___EnumValue_name(ctx, field)
+			case "description":
+				return ec.fieldContext___EnumValue_description(ctx, field)
+			case "isDeprecated":
+				return ec.fieldContext___EnumValue_isDeprecated(ctx, field)
+			case "deprecationReason":
+				return ec.fieldContext___EnumValue_deprecationReason(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __EnumValue", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field___Type_enumValues_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_inputFields(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_inputFields(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.InputFields(), nil
@@ -5179,22 +7795,41 @@ func (ec *executionContext) ___Type_inputFields(ctx context.Context, field graph
 	return ec.marshalO__InputValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐInputValueᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_inputFields(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext___InputValue_name(ctx, field)
+			case "description":
+				return ec.fieldContext___InputValue_description(ctx, field)
+			case "type":
+				return ec.fieldContext___InputValue_type(ctx, field)
+			case "defaultValue":
+				return ec.fieldContext___InputValue_defaultValue(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __InputValue", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_ofType(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_ofType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
 			ret = graphql.Null
 		}
 	}()
-	fc := &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   true,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.OfType(), nil
@@ -5211,6 +7846,82 @@ func (ec *executionContext) ___Type_ofType(ctx context.Context, field graphql.Co
 	return ec.marshalO__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) fieldContext___Type_ofType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "kind":
+				return ec.fieldContext___Type_kind(ctx, field)
+			case "name":
+				return ec.fieldContext___Type_name(ctx, field)
+			case "description":
+				return ec.fieldContext___Type_description(ctx, field)
+			case "fields":
+				return ec.fieldContext___Type_fields(ctx, field)
+			case "interfaces":
+				return ec.fieldContext___Type_interfaces(ctx, field)
+			case "possibleTypes":
+				return ec.fieldContext___Type_possibleTypes(ctx, field)
+			case "enumValues":
+				return ec.fieldContext___Type_enumValues(ctx, field)
+			case "inputFields":
+				return ec.fieldContext___Type_inputFields(ctx, field)
+			case "ofType":
+				return ec.fieldContext___Type_ofType(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) ___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_specifiedByURL(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.SpecifiedByURL(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 // endregion **************************** field.gotpl *****************************
 
 // region    **************************** input.gotpl *****************************
@@ -5222,7 +7933,12 @@ func (ec *executionContext) unmarshalInputApproveCommentsInput(ctx context.Conte
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"comment_ids"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "comment_ids":
 			var err error
@@ -5245,7 +7961,12 @@ func (ec *executionContext) unmarshalInputChangeCommentSettingsInput(ctx context
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"comment_id", "reply_notification"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "comment_id":
 			var err error
@@ -5276,7 +7997,12 @@ func (ec *executionContext) unmarshalInputCommentsByUserIdInput(ctx context.Cont
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"user_id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "user_id":
 			var err error
@@ -5299,7 +8025,12 @@ func (ec *executionContext) unmarshalInputCreateCommentInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"plain_text_body", "json_body", "application_id", "thread_id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "plain_text_body":
 			var err error
@@ -5313,7 +8044,7 @@ func (ec *executionContext) unmarshalInputCreateCommentInput(ctx context.Context
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("json_body"))
-			it.JSONBody, err = ec.unmarshalNJSON2string(ctx, v)
+			it.JSONBody, err = ec.unmarshalNJSON2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -5346,7 +8077,12 @@ func (ec *executionContext) unmarshalInputCreateReplyCommentInput(ctx context.Co
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"plain_text_body", "json_body", "application_id", "thread_id", "parent_id", "replied_to_id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "plain_text_body":
 			var err error
@@ -5360,7 +8096,7 @@ func (ec *executionContext) unmarshalInputCreateReplyCommentInput(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("json_body"))
-			it.JSONBody, err = ec.unmarshalNJSON2string(ctx, v)
+			it.JSONBody, err = ec.unmarshalNJSON2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -5409,7 +8145,12 @@ func (ec *executionContext) unmarshalInputCreateReportInput(ctx context.Context,
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"comment_id", "report"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "comment_id":
 			var err error
@@ -5440,7 +8181,12 @@ func (ec *executionContext) unmarshalInputDeleteManyCommentsInput(ctx context.Co
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"comment_ids", "permanent_delete"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "comment_ids":
 			var err error
@@ -5464,29 +8210,6 @@ func (ec *executionContext) unmarshalInputDeleteManyCommentsInput(ctx context.Co
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputFetchCommentAndVoteCountInput(ctx context.Context, obj interface{}) (model.FetchCommentAndVoteCountInput, error) {
-	var it model.FetchCommentAndVoteCountInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	for k, v := range asMap {
-		switch k {
-		case "user_id":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("user_id"))
-			it.UserID, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputFetchCommentByThreadIdInput(ctx context.Context, obj interface{}) (model.FetchCommentByThreadIDInput, error) {
 	var it model.FetchCommentByThreadIDInput
 	asMap := map[string]interface{}{}
@@ -5494,7 +8217,12 @@ func (ec *executionContext) unmarshalInputFetchCommentByThreadIdInput(ctx contex
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"limit", "skip", "sort", "thread_id", "application_short_name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "limit":
 			var err error
@@ -5542,6 +8270,42 @@ func (ec *executionContext) unmarshalInputFetchCommentByThreadIdInput(ctx contex
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputFetchCommentStatsInput(ctx context.Context, obj interface{}) (model.FetchCommentStatsInput, error) {
+	var it model.FetchCommentStatsInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"start_date", "end_date"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "start_date":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("start_date"))
+			it.StartDate, err = ec.unmarshalNDateTime2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "end_date":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("end_date"))
+			it.EndDate, err = ec.unmarshalNDateTime2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFetchCommentsByApplicationIdInput(ctx context.Context, obj interface{}) (model.FetchCommentsByApplicationIDInput, error) {
 	var it model.FetchCommentsByApplicationIDInput
 	asMap := map[string]interface{}{}
@@ -5549,7 +8313,12 @@ func (ec *executionContext) unmarshalInputFetchCommentsByApplicationIdInput(ctx 
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"limit", "skip", "sort", "application_short_name", "application_id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "limit":
 			var err error
@@ -5604,7 +8373,12 @@ func (ec *executionContext) unmarshalInputFetchCommentsByApplicationShortNameInp
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"limit", "skip", "sort", "application_short_name", "where"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "limit":
 			var err error
@@ -5659,7 +8433,12 @@ func (ec *executionContext) unmarshalInputFetchThreadCommentsBySort(ctx context.
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"limit", "skip", "sort"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "limit":
 			var err error
@@ -5698,7 +8477,12 @@ func (ec *executionContext) unmarshalInputUpdateCommentInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	for k, v := range asMap {
+	fieldsInOrder := [...]string{"plain_text_body", "json_body", "comment_id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
 		switch k {
 		case "plain_text_body":
 			var err error
@@ -5742,7 +8526,6 @@ var applicationModelImplementors = []string{"ApplicationModel"}
 
 func (ec *executionContext) _ApplicationModel(ctx context.Context, sel ast.SelectionSet, obj *model.ApplicationModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, applicationModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -5750,54 +8533,44 @@ func (ec *executionContext) _ApplicationModel(ctx context.Context, sel ast.Selec
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("ApplicationModel")
 		case "id":
+
 			out.Values[i] = ec._ApplicationModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "moderators_ids":
+
 			out.Values[i] = ec._ApplicationModel_moderators_ids(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "authenticated_users_ids":
+
 			out.Values[i] = ec._ApplicationModel_authenticated_users_ids(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "thread_ids":
+
+			out.Values[i] = ec._ApplicationModel_thread_ids(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "banned_users_by_id":
+
+			out.Values[i] = ec._ApplicationModel_banned_users_by_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "comments":
+
 			out.Values[i] = ec._ApplicationModel_comments(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch()
-	if invalids > 0 {
-		return graphql.Null
-	}
-	return out
-}
 
-var commentAndVoteCountEntityImplementors = []string{"CommentAndVoteCountEntity"}
-
-func (ec *executionContext) _CommentAndVoteCountEntity(ctx context.Context, sel ast.SelectionSet, obj *model.CommentAndVoteCountEntity) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, commentAndVoteCountEntityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	var invalids uint32
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CommentAndVoteCountEntity")
-		case "comment_count":
-			out.Values[i] = ec._CommentAndVoteCountEntity_comment_count(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "vote_count":
-			out.Values[i] = ec._CommentAndVoteCountEntity_vote_count(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -5816,114 +8589,234 @@ var commentModelImplementors = []string{"CommentModel"}
 
 func (ec *executionContext) _CommentModel(ctx context.Context, sel ast.SelectionSet, obj *model.CommentModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, commentModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("CommentModel")
-		case "ID":
-			out.Values[i] = ec._CommentModel_ID(ctx, field, obj)
+		case "id":
+
+			out.Values[i] = ec._CommentModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "created_at":
+
 			out.Values[i] = ec._CommentModel_created_at(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "updated_at":
+
 			out.Values[i] = ec._CommentModel_updated_at(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "author":
+
 			out.Values[i] = ec._CommentModel_author(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "thread_id":
+
 			out.Values[i] = ec._CommentModel_thread_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "parent_id":
+
 			out.Values[i] = ec._CommentModel_parent_id(ctx, field, obj)
-		case "PlainTextBody":
-			out.Values[i] = ec._CommentModel_PlainTextBody(ctx, field, obj)
+
+		case "plain_text_body":
+
+			out.Values[i] = ec._CommentModel_plain_text_body(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "json_body":
+
 			out.Values[i] = ec._CommentModel_json_body(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "up_vote":
+
 			out.Values[i] = ec._CommentModel_up_vote(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "down_vote":
+
 			out.Values[i] = ec._CommentModel_down_vote(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "edited":
+
+			out.Values[i] = ec._CommentModel_edited(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "reply_notification":
+
+			out.Values[i] = ec._CommentModel_reply_notification(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "threatening_content":
+
 			out.Values[i] = ec._CommentModel_threatening_content(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "private_information":
+
 			out.Values[i] = ec._CommentModel_private_information(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "deleted":
+
 			out.Values[i] = ec._CommentModel_deleted(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "flagged":
+
 			out.Values[i] = ec._CommentModel_flagged(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "pending":
+
 			out.Values[i] = ec._CommentModel_pending(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "approved":
+
 			out.Values[i] = ec._CommentModel_approved(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "replied_to_id":
+
 			out.Values[i] = ec._CommentModel_replied_to_id(ctx, field, obj)
+
 		case "user_id":
+
 			out.Values[i] = ec._CommentModel_user_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "application_id":
+
 			out.Values[i] = ec._CommentModel_application_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "reports":
+
 			out.Values[i] = ec._CommentModel_reports(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "replies":
+
 			out.Values[i] = ec._CommentModel_replies(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "_count":
+
 			out.Values[i] = ec._CommentModel__count(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var commentStatsEntityImplementors = []string{"CommentStatsEntity"}
+
+func (ec *executionContext) _CommentStatsEntity(ctx context.Context, sel ast.SelectionSet, obj *model.CommentStatsEntity) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commentStatsEntityImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CommentStatsEntity")
+		case "comments_per_day":
+
+			out.Values[i] = ec._CommentStatsEntity_comments_per_day(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var commentsPerDayImplementors = []string{"CommentsPerDay"}
+
+func (ec *executionContext) _CommentsPerDay(ctx context.Context, sel ast.SelectionSet, obj *model.CommentsPerDay) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commentsPerDayImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CommentsPerDay")
+		case "count":
+
+			out.Values[i] = ec._CommentsPerDay_count(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "date":
+
+			out.Values[i] = ec._CommentsPerDay_date(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -5942,7 +8835,6 @@ var countModelImplementors = []string{"CountModel"}
 
 func (ec *executionContext) _CountModel(ctx context.Context, sel ast.SelectionSet, obj *model.CountModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, countModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -5950,17 +8842,23 @@ func (ec *executionContext) _CountModel(ctx context.Context, sel ast.SelectionSe
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("CountModel")
 		case "up_vote":
+
 			out.Values[i] = ec._CountModel_up_vote(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "down_vote":
+
 			out.Values[i] = ec._CountModel_down_vote(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "replies":
+
 			out.Values[i] = ec._CountModel_replies(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -5979,20 +8877,23 @@ var fetchAllCommentsImplementors = []string{"FetchAllComments"}
 
 func (ec *executionContext) _FetchAllComments(ctx context.Context, sel ast.SelectionSet, obj *model.FetchAllComments) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, fetchAllCommentsImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("FetchAllComments")
-		case "CommentsCount":
-			out.Values[i] = ec._FetchAllComments_CommentsCount(ctx, field, obj)
+		case "comments_count":
+
+			out.Values[i] = ec._FetchAllComments_comments_count(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "Comments":
-			out.Values[i] = ec._FetchAllComments_Comments(ctx, field, obj)
+		case "comments":
+
+			out.Values[i] = ec._FetchAllComments_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6011,7 +8912,6 @@ var fetchCommentByApplicationNameImplementors = []string{"FetchCommentByApplicat
 
 func (ec *executionContext) _FetchCommentByApplicationName(ctx context.Context, sel ast.SelectionSet, obj *model.FetchCommentByApplicationName) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, fetchCommentByApplicationNameImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6019,12 +8919,16 @@ func (ec *executionContext) _FetchCommentByApplicationName(ctx context.Context, 
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("FetchCommentByApplicationName")
 		case "comments_count":
+
 			out.Values[i] = ec._FetchCommentByApplicationName_comments_count(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "comments":
+
 			out.Values[i] = ec._FetchCommentByApplicationName_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6043,7 +8947,6 @@ var fetchCommentByThreadIdResponseImplementors = []string{"FetchCommentByThreadI
 
 func (ec *executionContext) _FetchCommentByThreadIdResponse(ctx context.Context, sel ast.SelectionSet, obj *model.FetchCommentByThreadIDResponse) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, fetchCommentByThreadIdResponseImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6051,12 +8954,16 @@ func (ec *executionContext) _FetchCommentByThreadIdResponse(ctx context.Context,
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("FetchCommentByThreadIdResponse")
 		case "comments_count":
+
 			out.Values[i] = ec._FetchCommentByThreadIdResponse_comments_count(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "comments":
+
 			out.Values[i] = ec._FetchCommentByThreadIdResponse_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6075,7 +8982,6 @@ var fetchCommentsByApplicationIdImplementors = []string{"FetchCommentsByApplicat
 
 func (ec *executionContext) _FetchCommentsByApplicationId(ctx context.Context, sel ast.SelectionSet, obj *model.FetchCommentsByApplicationID) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, fetchCommentsByApplicationIdImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6083,12 +8989,16 @@ func (ec *executionContext) _FetchCommentsByApplicationId(ctx context.Context, s
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("FetchCommentsByApplicationId")
 		case "comments_count":
+
 			out.Values[i] = ec._FetchCommentsByApplicationId_comments_count(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "comments":
+
 			out.Values[i] = ec._FetchCommentsByApplicationId_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6107,7 +9017,6 @@ var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, mutationImplementors)
-
 	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
 		Object: "Mutation",
 	})
@@ -6115,56 +9024,110 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
+		innerCtx := graphql.WithRootFieldContext(ctx, &graphql.RootFieldContext{
+			Object: field.Name,
+			Field:  field,
+		})
+
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
 		case "create_comment":
-			out.Values[i] = ec._Mutation_create_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_create_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "create_reply_comment":
-			out.Values[i] = ec._Mutation_create_reply_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_create_reply_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "update_comment":
-			out.Values[i] = ec._Mutation_update_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_update_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "delete_comment":
-			out.Values[i] = ec._Mutation_delete_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_delete_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "delete_many_comments":
-			out.Values[i] = ec._Mutation_delete_many_comments(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_delete_many_comments(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "change_comment_settings":
-			out.Values[i] = ec._Mutation_change_comment_settings(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_change_comment_settings(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "up_vote_comment":
-			out.Values[i] = ec._Mutation_up_vote_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_up_vote_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "down_vote_comment":
-			out.Values[i] = ec._Mutation_down_vote_comment(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_down_vote_comment(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "create_report":
-			out.Values[i] = ec._Mutation_create_report(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_create_report(ctx, field)
+			})
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "delete_report_by_id":
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_delete_report_by_id(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "approve_comments":
-			out.Values[i] = ec._Mutation_approve_comments(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_approve_comments(ctx, field)
+			})
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6183,7 +9146,6 @@ var profileEntityImplementors = []string{"ProfileEntity"}
 
 func (ec *executionContext) _ProfileEntity(ctx context.Context, sel ast.SelectionSet, obj *model.ProfileEntity) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, profileEntityImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6191,12 +9153,16 @@ func (ec *executionContext) _ProfileEntity(ctx context.Context, sel ast.Selectio
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("ProfileEntity")
 		case "id":
+
 			out.Values[i] = ec._ProfileEntity_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "profile_comments":
+
 			out.Values[i] = ec._ProfileEntity_profile_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6215,7 +9181,6 @@ var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, queryImplementors)
-
 	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
 		Object: "Query",
 	})
@@ -6223,12 +9188,18 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
+		innerCtx := graphql.WithRootFieldContext(ctx, &graphql.RootFieldContext{
+			Object: field.Name,
+			Field:  field,
+		})
+
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
 		case "fetch_comments_by_thread_id":
 			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
@@ -6239,10 +9210,19 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					atomic.AddUint32(&invalids, 1)
 				}
 				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
 			})
 		case "fetch_comments_by_application_id":
 			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
@@ -6253,10 +9233,19 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					atomic.AddUint32(&invalids, 1)
 				}
 				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
 			})
 		case "fetch_comments_by_application_short_name":
 			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
@@ -6267,10 +9256,19 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					atomic.AddUint32(&invalids, 1)
 				}
 				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
 			})
 		case "fetch_comments":
 			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
@@ -6281,25 +9279,73 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					atomic.AddUint32(&invalids, 1)
 				}
 				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
 			})
-		case "fetch_comment_and_vote_count":
+		case "fetch_all_reports":
 			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_fetch_comment_and_vote_count(ctx, field)
+				res = ec._Query_fetch_all_reports(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
 				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
+			})
+		case "fetch_comment_stats":
+			field := field
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_fetch_comment_stats(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
 			})
 		case "__type":
-			out.Values[i] = ec._Query___type(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Query___type(ctx, field)
+			})
+
 		case "__schema":
-			out.Values[i] = ec._Query___schema(ctx, field)
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Query___schema(ctx, field)
+			})
+
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6315,7 +9361,6 @@ var ratingModelImplementors = []string{"RatingModel"}
 
 func (ec *executionContext) _RatingModel(ctx context.Context, sel ast.SelectionSet, obj *model.RatingModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, ratingModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6323,12 +9368,16 @@ func (ec *executionContext) _RatingModel(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("RatingModel")
 		case "id":
+
 			out.Values[i] = ec._RatingModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "author_id":
+
 			out.Values[i] = ec._RatingModel_author_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6347,7 +9396,6 @@ var reportModelImplementors = []string{"ReportModel"}
 
 func (ec *executionContext) _ReportModel(ctx context.Context, sel ast.SelectionSet, obj *model.ReportModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, reportModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6355,27 +9403,37 @@ func (ec *executionContext) _ReportModel(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("ReportModel")
 		case "id":
+
 			out.Values[i] = ec._ReportModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "user_id":
+
 			out.Values[i] = ec._ReportModel_user_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "reason":
+
 			out.Values[i] = ec._ReportModel_reason(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "created_at":
+
 			out.Values[i] = ec._ReportModel_created_at(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "updated_at":
+
 			out.Values[i] = ec._ReportModel_updated_at(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6394,7 +9452,6 @@ var standardResponseModelImplementors = []string{"StandardResponseModel"}
 
 func (ec *executionContext) _StandardResponseModel(ctx context.Context, sel ast.SelectionSet, obj *model.StandardResponseModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, standardResponseModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6402,12 +9459,16 @@ func (ec *executionContext) _StandardResponseModel(ctx context.Context, sel ast.
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("StandardResponseModel")
 		case "success":
+
 			out.Values[i] = ec._StandardResponseModel_success(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "message":
+
 			out.Values[i] = ec._StandardResponseModel_message(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6426,7 +9487,6 @@ var threadModelImplementors = []string{"ThreadModel"}
 
 func (ec *executionContext) _ThreadModel(ctx context.Context, sel ast.SelectionSet, obj *model.ThreadModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, threadModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6434,21 +9494,38 @@ func (ec *executionContext) _ThreadModel(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("ThreadModel")
 		case "id":
+
 			out.Values[i] = ec._ThreadModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "pinned_comment_id":
+
 			out.Values[i] = ec._ThreadModel_pinned_comment_id(ctx, field, obj)
+
+		case "application_id":
+
+			out.Values[i] = ec._ThreadModel_application_id(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "subscribed_users_ids":
+
 			out.Values[i] = ec._ThreadModel_subscribed_users_ids(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "pinned_comment":
+
 			out.Values[i] = ec._ThreadModel_pinned_comment(ctx, field, obj)
+
 		case "thread_comments":
+
 			out.Values[i] = ec._ThreadModel_thread_comments(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6467,7 +9544,6 @@ var userModelImplementors = []string{"UserModel"}
 
 func (ec *executionContext) _UserModel(ctx context.Context, sel ast.SelectionSet, obj *model.UserModel) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, userModelImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6475,7 +9551,9 @@ func (ec *executionContext) _UserModel(ctx context.Context, sel ast.SelectionSet
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("UserModel")
 		case "id":
+
 			out.Values[i] = ec._UserModel_id(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6494,7 +9572,6 @@ var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __DirectiveImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6502,24 +9579,34 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__Directive")
 		case "name":
+
 			out.Values[i] = ec.___Directive_name(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "description":
+
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
+
 		case "locations":
+
 			out.Values[i] = ec.___Directive_locations(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "args":
+
 			out.Values[i] = ec.___Directive_args(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "isRepeatable":
+
 			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6538,7 +9625,6 @@ var __EnumValueImplementors = []string{"__EnumValue"}
 
 func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionSet, obj *introspection.EnumValue) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __EnumValueImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6546,19 +9632,27 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__EnumValue")
 		case "name":
+
 			out.Values[i] = ec.___EnumValue_name(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "description":
+
 			out.Values[i] = ec.___EnumValue_description(ctx, field, obj)
+
 		case "isDeprecated":
+
 			out.Values[i] = ec.___EnumValue_isDeprecated(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "deprecationReason":
+
 			out.Values[i] = ec.___EnumValue_deprecationReason(ctx, field, obj)
+
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6574,7 +9668,6 @@ var __FieldImplementors = []string{"__Field"}
 
 func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, obj *introspection.Field) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __FieldImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6582,29 +9675,41 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__Field")
 		case "name":
+
 			out.Values[i] = ec.___Field_name(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "description":
+
 			out.Values[i] = ec.___Field_description(ctx, field, obj)
+
 		case "args":
+
 			out.Values[i] = ec.___Field_args(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "type":
+
 			out.Values[i] = ec.___Field_type(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "isDeprecated":
+
 			out.Values[i] = ec.___Field_isDeprecated(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "deprecationReason":
+
 			out.Values[i] = ec.___Field_deprecationReason(ctx, field, obj)
+
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6620,7 +9725,6 @@ var __InputValueImplementors = []string{"__InputValue"}
 
 func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.SelectionSet, obj *introspection.InputValue) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __InputValueImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6628,19 +9732,27 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__InputValue")
 		case "name":
+
 			out.Values[i] = ec.___InputValue_name(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "description":
+
 			out.Values[i] = ec.___InputValue_description(ctx, field, obj)
+
 		case "type":
+
 			out.Values[i] = ec.___InputValue_type(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "defaultValue":
+
 			out.Values[i] = ec.___InputValue_defaultValue(ctx, field, obj)
+
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6656,29 +9768,42 @@ var __SchemaImplementors = []string{"__Schema"}
 
 func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet, obj *introspection.Schema) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __SchemaImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__Schema")
+		case "description":
+
+			out.Values[i] = ec.___Schema_description(ctx, field, obj)
+
 		case "types":
+
 			out.Values[i] = ec.___Schema_types(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "queryType":
+
 			out.Values[i] = ec.___Schema_queryType(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "mutationType":
+
 			out.Values[i] = ec.___Schema_mutationType(ctx, field, obj)
+
 		case "subscriptionType":
+
 			out.Values[i] = ec.___Schema_subscriptionType(ctx, field, obj)
+
 		case "directives":
+
 			out.Values[i] = ec.___Schema_directives(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6697,7 +9822,6 @@ var __TypeImplementors = []string{"__Type"}
 
 func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, obj *introspection.Type) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, __TypeImplementors)
-
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
@@ -6705,26 +9829,48 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("__Type")
 		case "kind":
+
 			out.Values[i] = ec.___Type_kind(ctx, field, obj)
+
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "name":
+
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
+
 		case "description":
+
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
+
 		case "fields":
+
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
+
 		case "interfaces":
+
 			out.Values[i] = ec.___Type_interfaces(ctx, field, obj)
+
 		case "possibleTypes":
+
 			out.Values[i] = ec.___Type_possibleTypes(ctx, field, obj)
+
 		case "enumValues":
+
 			out.Values[i] = ec.___Type_enumValues(ctx, field, obj)
+
 		case "inputFields":
+
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
+
 		case "ofType":
+
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
+
+		case "specifiedByURL":
+
+			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
+
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6754,7 +9900,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	res := graphql.MarshalBoolean(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -6763,20 +9909,6 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 func (ec *executionContext) unmarshalNChangeCommentSettingsInput2lasthurrahᚋgraphᚋmodelᚐChangeCommentSettingsInput(ctx context.Context, v interface{}) (model.ChangeCommentSettingsInput, error) {
 	res, err := ec.unmarshalInputChangeCommentSettingsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNCommentAndVoteCountEntity2lasthurrahᚋgraphᚋmodelᚐCommentAndVoteCountEntity(ctx context.Context, sel ast.SelectionSet, v model.CommentAndVoteCountEntity) graphql.Marshaler {
-	return ec._CommentAndVoteCountEntity(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNCommentAndVoteCountEntity2ᚖlasthurrahᚋgraphᚋmodelᚐCommentAndVoteCountEntity(ctx context.Context, sel ast.SelectionSet, v *model.CommentAndVoteCountEntity) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	return ec._CommentAndVoteCountEntity(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNCommentModel2lasthurrahᚋgraphᚋmodelᚐCommentModel(ctx context.Context, sel ast.SelectionSet, v model.CommentModel) graphql.Marshaler {
@@ -6830,17 +9962,85 @@ func (ec *executionContext) marshalNCommentModel2ᚕᚖlasthurrahᚋgraphᚋmode
 func (ec *executionContext) marshalNCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx context.Context, sel ast.SelectionSet, v *model.CommentModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
 	return ec._CommentModel(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNCommentStatsEntity2lasthurrahᚋgraphᚋmodelᚐCommentStatsEntity(ctx context.Context, sel ast.SelectionSet, v model.CommentStatsEntity) graphql.Marshaler {
+	return ec._CommentStatsEntity(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCommentStatsEntity2ᚖlasthurrahᚋgraphᚋmodelᚐCommentStatsEntity(ctx context.Context, sel ast.SelectionSet, v *model.CommentStatsEntity) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CommentStatsEntity(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCommentsPerDay2ᚕᚖlasthurrahᚋgraphᚋmodelᚐCommentsPerDayᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CommentsPerDay) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNCommentsPerDay2ᚖlasthurrahᚋgraphᚋmodelᚐCommentsPerDay(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNCommentsPerDay2ᚖlasthurrahᚋgraphᚋmodelᚐCommentsPerDay(ctx context.Context, sel ast.SelectionSet, v *model.CommentsPerDay) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CommentsPerDay(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNCountModel2ᚖlasthurrahᚋgraphᚋmodelᚐCountModel(ctx context.Context, sel ast.SelectionSet, v *model.CountModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -6871,7 +10071,7 @@ func (ec *executionContext) marshalNDateTime2string(ctx context.Context, sel ast
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -6889,16 +10089,11 @@ func (ec *executionContext) marshalNFetchAllComments2lasthurrahᚋgraphᚋmodel�
 func (ec *executionContext) marshalNFetchAllComments2ᚖlasthurrahᚋgraphᚋmodelᚐFetchAllComments(ctx context.Context, sel ast.SelectionSet, v *model.FetchAllComments) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
 	return ec._FetchAllComments(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNFetchCommentAndVoteCountInput2lasthurrahᚋgraphᚋmodelᚐFetchCommentAndVoteCountInput(ctx context.Context, v interface{}) (model.FetchCommentAndVoteCountInput, error) {
-	res, err := ec.unmarshalInputFetchCommentAndVoteCountInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNFetchCommentByApplicationName2lasthurrahᚋgraphᚋmodelᚐFetchCommentByApplicationName(ctx context.Context, sel ast.SelectionSet, v model.FetchCommentByApplicationName) graphql.Marshaler {
@@ -6908,7 +10103,7 @@ func (ec *executionContext) marshalNFetchCommentByApplicationName2lasthurrahᚋg
 func (ec *executionContext) marshalNFetchCommentByApplicationName2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentByApplicationName(ctx context.Context, sel ast.SelectionSet, v *model.FetchCommentByApplicationName) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -6927,11 +10122,16 @@ func (ec *executionContext) marshalNFetchCommentByThreadIdResponse2lasthurrahᚋ
 func (ec *executionContext) marshalNFetchCommentByThreadIdResponse2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentByThreadIDResponse(ctx context.Context, sel ast.SelectionSet, v *model.FetchCommentByThreadIDResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
 	return ec._FetchCommentByThreadIdResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNFetchCommentStatsInput2lasthurrahᚋgraphᚋmodelᚐFetchCommentStatsInput(ctx context.Context, v interface{}) (model.FetchCommentStatsInput, error) {
+	res, err := ec.unmarshalInputFetchCommentStatsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNFetchCommentsByApplicationId2lasthurrahᚋgraphᚋmodelᚐFetchCommentsByApplicationID(ctx context.Context, sel ast.SelectionSet, v model.FetchCommentsByApplicationID) graphql.Marshaler {
@@ -6941,7 +10141,7 @@ func (ec *executionContext) marshalNFetchCommentsByApplicationId2lasthurrahᚋgr
 func (ec *executionContext) marshalNFetchCommentsByApplicationId2ᚖlasthurrahᚋgraphᚋmodelᚐFetchCommentsByApplicationID(ctx context.Context, sel ast.SelectionSet, v *model.FetchCommentsByApplicationID) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -6963,21 +10163,6 @@ func (ec *executionContext) unmarshalNFetchThreadCommentsBySort2lasthurrahᚋgra
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v interface{}) (float64, error) {
-	res, err := graphql.UnmarshalFloat(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.SelectionSet, v float64) graphql.Marshaler {
-	res := graphql.MarshalFloat(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6987,7 +10172,7 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -7002,7 +10187,7 @@ func (ec *executionContext) marshalNJSON2string(ctx context.Context, sel ast.Sel
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -7011,11 +10196,7 @@ func (ec *executionContext) marshalNJSON2string(ctx context.Context, sel ast.Sel
 func (ec *executionContext) unmarshalNJSON2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
 	var vSlice []interface{}
 	if v != nil {
-		if tmp1, ok := v.([]interface{}); ok {
-			vSlice = tmp1
-		} else {
-			vSlice = []interface{}{v}
-		}
+		vSlice = graphql.CoerceList(v)
 	}
 	var err error
 	res := make([]string, len(vSlice))
@@ -7101,7 +10282,7 @@ func (ec *executionContext) marshalNRatingModel2ᚕᚖlasthurrahᚋgraphᚋmodel
 func (ec *executionContext) marshalNRatingModel2ᚖlasthurrahᚋgraphᚋmodelᚐRatingModel(ctx context.Context, sel ast.SelectionSet, v *model.RatingModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -7155,7 +10336,7 @@ func (ec *executionContext) marshalNReportModel2ᚕᚖlasthurrahᚋgraphᚋmodel
 func (ec *executionContext) marshalNReportModel2ᚖlasthurrahᚋgraphᚋmodelᚐReportModel(ctx context.Context, sel ast.SelectionSet, v *model.ReportModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -7169,7 +10350,7 @@ func (ec *executionContext) marshalNStandardResponseModel2lasthurrahᚋgraphᚋm
 func (ec *executionContext) marshalNStandardResponseModel2ᚖlasthurrahᚋgraphᚋmodelᚐStandardResponseModel(ctx context.Context, sel ast.SelectionSet, v *model.StandardResponseModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -7185,7 +10366,7 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -7194,11 +10375,7 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
 	var vSlice []interface{}
 	if v != nil {
-		if tmp1, ok := v.([]interface{}); ok {
-			vSlice = tmp1
-		} else {
-			vSlice = []interface{}{v}
-		}
+		vSlice = graphql.CoerceList(v)
 	}
 	var err error
 	res := make([]string, len(vSlice))
@@ -7235,7 +10412,7 @@ func (ec *executionContext) unmarshalNUpdateCommentInput2lasthurrahᚋgraphᚋmo
 func (ec *executionContext) marshalNUserModel2ᚖlasthurrahᚋgraphᚋmodelᚐUserModel(ctx context.Context, sel ast.SelectionSet, v *model.UserModel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -7299,7 +10476,7 @@ func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Conte
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -7308,11 +10485,7 @@ func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Conte
 func (ec *executionContext) unmarshalN__DirectiveLocation2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
 	var vSlice []interface{}
 	if v != nil {
-		if tmp1, ok := v.([]interface{}); ok {
-			vSlice = tmp1
-		} else {
-			vSlice = []interface{}{v}
-		}
+		vSlice = graphql.CoerceList(v)
 	}
 	var err error
 	res := make([]string, len(vSlice))
@@ -7477,7 +10650,7 @@ func (ec *executionContext) marshalN__Type2ᚕgithubᚗcomᚋ99designsᚋgqlgen�
 func (ec *executionContext) marshalN__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx context.Context, sel ast.SelectionSet, v *introspection.Type) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -7493,7 +10666,7 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -7525,7 +10698,8 @@ func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v interf
 }
 
 func (ec *executionContext) marshalOBoolean2bool(ctx context.Context, sel ast.SelectionSet, v bool) graphql.Marshaler {
-	return graphql.MarshalBoolean(v)
+	res := graphql.MarshalBoolean(v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOBoolean2ᚖbool(ctx context.Context, v interface{}) (*bool, error) {
@@ -7540,7 +10714,8 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	if v == nil {
 		return graphql.Null
 	}
-	return graphql.MarshalBoolean(*v)
+	res := graphql.MarshalBoolean(*v)
+	return res
 }
 
 func (ec *executionContext) marshalOCommentModel2ᚖlasthurrahᚋgraphᚋmodelᚐCommentModel(ctx context.Context, sel ast.SelectionSet, v *model.CommentModel) graphql.Marshaler {
@@ -7558,15 +10733,6 @@ func (ec *executionContext) unmarshalOCommentsByUserIdInput2ᚖlasthurrahᚋgrap
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {
-	res, err := graphql.UnmarshalString(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
-	return graphql.MarshalString(v)
-}
-
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -7579,7 +10745,8 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	if v == nil {
 		return graphql.Null
 	}
-	return graphql.MarshalString(*v)
+	res := graphql.MarshalString(*v)
+	return res
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

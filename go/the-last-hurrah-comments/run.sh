@@ -1,2 +1,2 @@
 #!/bin/bash   
-go run src/server.go
+go run server.go

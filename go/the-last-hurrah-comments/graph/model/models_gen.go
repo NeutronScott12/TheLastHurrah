@@ -12,6 +12,8 @@ type ApplicationModel struct {
 	ID                    string          `json:"id"`
 	ModeratorsIds         []string        `json:"moderators_ids"`
 	AuthenticatedUsersIds []string        `json:"authenticated_users_ids"`
+	ThreadIds             []string        `json:"thread_ids"`
+	BannedUsersByID       []string        `json:"banned_users_by_id"`
 	Comments              []*CommentModel `json:"comments"`
 }
 
@@ -24,22 +26,19 @@ type ChangeCommentSettingsInput struct {
 	ReplyNotification bool   `json:"reply_notification"`
 }
 
-type CommentAndVoteCountEntity struct {
-	CommentCount int `json:"comment_count"`
-	VoteCount    int `json:"vote_count"`
-}
-
 type CommentModel struct {
-	ID                 string          `json:"ID"`
+	ID                 string          `json:"id"`
 	CreatedAt          string          `json:"created_at"`
 	UpdatedAt          string          `json:"updated_at"`
 	Author             *UserModel      `json:"author"`
 	ThreadID           string          `json:"thread_id"`
 	ParentID           *string         `json:"parent_id"`
-	PlainTextBody      string          `json:"PlainTextBody"`
+	PlainTextBody      string          `json:"plain_text_body"`
 	JSONBody           []string        `json:"json_body"`
 	UpVote             []*RatingModel  `json:"up_vote"`
 	DownVote           []*RatingModel  `json:"down_vote"`
+	Edited             bool            `json:"edited"`
+	ReplyNotification  bool            `json:"reply_notification"`
 	ThreateningContent bool            `json:"threatening_content"`
 	PrivateInformation bool            `json:"private_information"`
 	Deleted            bool            `json:"deleted"`
@@ -54,8 +53,17 @@ type CommentModel struct {
 	Count              *CountModel     `json:"_count"`
 }
 
+type CommentStatsEntity struct {
+	CommentsPerDay []*CommentsPerDay `json:"comments_per_day"`
+}
+
 type CommentsByUserIDInput struct {
 	UserID *string `json:"user_id"`
+}
+
+type CommentsPerDay struct {
+	Count int    `json:"count"`
+	Date  string `json:"date"`
 }
 
 type CountModel struct {
@@ -65,19 +73,19 @@ type CountModel struct {
 }
 
 type CreateCommentInput struct {
-	PlainTextBody string `json:"plain_text_body"`
-	JSONBody      string `json:"json_body"`
-	ApplicationID string `json:"application_id"`
-	ThreadID      string `json:"thread_id"`
+	PlainTextBody string   `json:"plain_text_body"`
+	JSONBody      []string `json:"json_body"`
+	ApplicationID string   `json:"application_id"`
+	ThreadID      string   `json:"thread_id"`
 }
 
 type CreateReplyCommentInput struct {
-	PlainTextBody string `json:"plain_text_body"`
-	JSONBody      string `json:"json_body"`
-	ApplicationID string `json:"application_id"`
-	ThreadID      string `json:"thread_id"`
-	ParentID      string `json:"parent_id"`
-	RepliedToID   string `json:"replied_to_id"`
+	PlainTextBody string   `json:"plain_text_body"`
+	JSONBody      []string `json:"json_body"`
+	ApplicationID string   `json:"application_id"`
+	ThreadID      string   `json:"thread_id"`
+	ParentID      string   `json:"parent_id"`
+	RepliedToID   string   `json:"replied_to_id"`
 }
 
 type CreateReportInput struct {
@@ -91,16 +99,12 @@ type DeleteManyCommentsInput struct {
 }
 
 type FetchAllComments struct {
-	CommentsCount int             `json:"CommentsCount"`
-	Comments      []*CommentModel `json:"Comments"`
-}
-
-type FetchCommentAndVoteCountInput struct {
-	UserID string `json:"user_id"`
+	CommentsCount int             `json:"comments_count"`
+	Comments      []*CommentModel `json:"comments"`
 }
 
 type FetchCommentByApplicationName struct {
-	CommentsCount float64         `json:"comments_count"`
+	CommentsCount int             `json:"comments_count"`
 	Comments      []*CommentModel `json:"comments"`
 }
 
@@ -113,12 +117,17 @@ type FetchCommentByThreadIDInput struct {
 }
 
 type FetchCommentByThreadIDResponse struct {
-	CommentsCount float64         `json:"comments_count"`
+	CommentsCount int             `json:"comments_count"`
 	Comments      []*CommentModel `json:"comments"`
 }
 
+type FetchCommentStatsInput struct {
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+}
+
 type FetchCommentsByApplicationID struct {
-	CommentsCount float64         `json:"comments_count"`
+	CommentsCount int             `json:"comments_count"`
 	Comments      []*CommentModel `json:"comments"`
 }
 
@@ -171,6 +180,7 @@ type ThreadModel struct {
 	// UUID for Thread
 	ID                 string                          `json:"id"`
 	PinnedCommentID    *string                         `json:"pinned_comment_id"`
+	ApplicationID      string                          `json:"application_id"`
 	SubscribedUsersIds []string                        `json:"subscribed_users_ids"`
 	PinnedComment      *CommentModel                   `json:"pinned_comment"`
 	ThreadComments     *FetchCommentByThreadIDResponse `json:"thread_comments"`
