@@ -11,9 +11,12 @@ export class CreateCommentInput {
     @Field((type) => [GraphQLJSONObject])
     json_body: object
 
-    @Field()
+    @Field({
+        deprecationReason:
+            'We are moving to application_short_name to represent the application',
+    })
     application_id: string
 
-    @Field()
+    @Field({ deprecationReason: "We'll be using thread titles instead of ids" })
     thread_id: string
 }
