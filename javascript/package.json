@@ -27,22 +27,15 @@
     "workspaces": {
         "packages": [
             "packages/*"
-        ],
-        "nohoist": [
-            "@graphql-codegen/**",
-            "@prisma/client/**",
-            "**/@prisma/client/**",
-            "**/@prisma/client",
-            "**/prisma/**",
-            "**/prisma",
-            "**/ts-proto"
         ]
     },
     "devDependencies": {
-        "lerna": "^5.1.8"
+        "husky": "^8.0.1",
+        "lerna": "^5.2.0"
     },
     "dependencies": {
         "glob": "^8.0.3",
         "rimraf": "^3.0.2"
-    }
+    },
+    "packageManager": "yarn@3.2.2"
 }

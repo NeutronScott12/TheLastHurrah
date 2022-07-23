@@ -37,6 +37,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                         },
                     )
 
+                    console.log('RESULT', result)
+
                     if (result.success) {
                         done(null, result.auth_secret)
                     }

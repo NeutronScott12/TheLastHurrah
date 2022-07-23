@@ -3,9 +3,6 @@ import {
     InternalServerErrorException,
     UnauthorizedException,
 } from '@nestjs/common'
-import { AxiosResponse } from 'axios'
-import { lastValueFrom, Observable } from 'rxjs'
-import { ApplicationDto } from 'src/comment/dto/application.dto'
 
 import { ApplicationService } from 'src/comment/services/application.service'
 import { CommentService } from 'src/comment/services/comment.service'

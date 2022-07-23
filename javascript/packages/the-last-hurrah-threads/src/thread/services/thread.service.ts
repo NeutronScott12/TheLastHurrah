@@ -65,24 +65,24 @@ export class ThreadService {
             }
 
             if (thread) {
-                await this.update({
-                    where: { id: thread.id },
-                    data: {
-                        views: {
-                            upsert: {
-                                where: {
-                                    user_id: currentUser.user_id,
-                                },
-                                create: {
-                                    user_id: currentUser.user_id,
-                                },
-                                update: {
-                                    user_id: currentUser.user_id,
-                                },
-                            },
-                        },
-                    },
-                })
+                // await this.update({
+                //     where: { id: thread.id },
+                //     data: {
+                //         views: {
+                //             upsert: {
+                //                 where: {
+                //                     user_id: currentUser.user_id,
+                //                 },
+                //                 create: {
+                //                     user_id: currentUser.user_id,
+                //                 },
+                //                 update: {
+                //                     user_id: currentUser.user_id,
+                //                 },
+                //             },
+                //         },
+                //     },
+                // })
 
                 return thread
             }

@@ -5,6 +5,7 @@ import { configOptions } from '.'
 class bullConfigOptions {
     static getBullConfig(configService: ConfigService): BullModuleOptions {
         return {
+            //@ts-ignore
             redis: {
                 host: configService.get('REDIS_HOST'),
                 port: configService.get('REDIS_PORT'),

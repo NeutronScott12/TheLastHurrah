@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bull'
 import { APP_GUARD } from '@nestjs/core'
-import { GqlAuthGuard } from '@thelasthurrah/the-last-hurrah-shared'
+// import { GqlAuthGuard } from '@thelasthurrah/the-last-hurrah-shared'
 // import * as redisStore from 'cache-manager-redis-store'
 
 import { ApplicationService } from './services/application.service'
@@ -17,6 +17,7 @@ import { ThreadGrpcService } from './services/thread-grpc.service'
 import { CommenceGrpcService } from './services/commence.grpc.service'
 import { SubscriptionResolver } from './resolvers/subscription.resolver'
 import { SubscriptionService } from './services/subscription.service'
+import { GqlAuthGuard } from '~/auth/GqlGuard'
 
 @Module({
     providers: [

@@ -23,7 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKeyProvider: async (request, token, done) => {
+            secretOrKeyProvider: async (_request, token: string, done) => {
                 const decodeToken = jwt.decode(token) as {
                     application_id: string
                     user_id: string
@@ -36,6 +36,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                             user_id: decodeToken.user_id,
                         },
                     )
+
+                    console.log('RESULT', result)
 
                     if (result.success) {
                         done(null, result.auth_secret)

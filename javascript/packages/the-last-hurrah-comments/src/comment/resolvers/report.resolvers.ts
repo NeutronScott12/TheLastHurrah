@@ -49,6 +49,8 @@ export class ReportResolver {
                 include: { reports: true },
             })
 
+            console.log('COMMENT: ', comment)
+
             const matches = comment.reports.some(
                 (report) => report.user_id === user_id,
             )
@@ -106,6 +108,8 @@ export class ReportResolver {
                             url: 'http://localhost:3000',
                         },
                     )
+
+                console.log('RESPONSE_NOTIFICATION', response)
             } else {
                 throw new InternalServerErrorException({
                     success: false,
