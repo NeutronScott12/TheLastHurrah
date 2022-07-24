@@ -33,6 +33,7 @@ async function bootstrap() {
     // app.use(helmet())
     // console.log(await app.getUrl())
     app.use(compression())
+    await app.startAllMicroservices()
     await app.listen(PORT)
     startUpMessages(`${await app.getUrl()}/graphql`, 'Comments')
 }

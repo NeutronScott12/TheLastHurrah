@@ -25,7 +25,6 @@ export class CommentGrpcService {
     async deleteCommentsByThreadId(args: IDeleteCommentsByThreadIdArgs) {
         try {
             const result = this.commentService.deleteCommentsByThreadId(args)
-            console.log('RESULT', result)
             return lastValueFrom(result)
         } catch (error) {
             throw new InternalServerErrorException({

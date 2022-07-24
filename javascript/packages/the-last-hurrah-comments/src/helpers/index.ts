@@ -133,6 +133,8 @@ export const CommentModerationGenerator = async (
         input.application_id,
     )
 
+    console.log('BROKE HERE')
+
     if (application !== null) {
         if (application.moderators_ids) {
             match = application.moderators_ids.some((id) => id === user_id)

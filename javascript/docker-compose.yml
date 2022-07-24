@@ -100,7 +100,7 @@ services:
         environment:
             - POSTGRES_USER=postgres
             - POSTGRES_PASSWORD=postgres
-            - POSTGRES_DB=thelasthurrah_notifications
+            - POSTGRES_DB=thelasthurrah_threads
         volumes:
             - thelasthurrah_threads_database:/var/lib/postgresql/data
 

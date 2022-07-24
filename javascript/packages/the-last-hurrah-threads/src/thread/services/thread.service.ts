@@ -47,9 +47,9 @@ export class ThreadService {
                 where: {
                     title,
                 },
-                include: {
-                    views: true,
-                },
+                // include: {
+                //     views: true,
+                // },
             })
 
             const application =
@@ -92,11 +92,9 @@ export class ThreadService {
                     title,
                     website_url,
                     application_id,
-                    views: {
-                        connect: {
-                            user_id: currentUser.user_id,
-                        },
-                    },
+                    // views: {
+
+                    // },
                 },
                 include: { views: true },
             })

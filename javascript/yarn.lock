@@ -112,20 +112,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/federation@npm:0.36.1, @apollo/federation@npm:^0.36.1":
-  version: 0.36.1
-  resolution: "@apollo/federation@npm:0.36.1"
+"@apollo/core-schema@npm:~0.3.0":
+  version: 0.3.0
+  resolution: "@apollo/core-schema@npm:0.3.0"
   dependencies:
-    "@apollo/subgraph": ^0.4.1
-    apollo-server-types: ^3.0.2
-    lodash.xorby: ^4.7.0
+    "@protoplasm/recall": ^0.2
   peerDependencies:
-    graphql: ^15.8.0 || ^16.0.0
-  checksum: b971086800940084e6e395e24331c6df7eb0b0aa371c7ab2d4eb456af9633db91c840af506eff53a94a8ba577f28b18224ba9dafd1b298e621415c083cb2471b
+    graphql: ^15 || ^16
+  checksum: d0cb0e2f06d7bd934e00322f1775b9404d82c208d1c3f102dd2ee66f6989fb0542c1cd844a5c51edd42e1a0e682db6a45660fa408790e379f0aa136c43b85ac5
   languageName: node
   linkType: hard
 
-"@apollo/federation@npm:^0.36.2":
+"@apollo/federation-internals@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@apollo/federation-internals@npm:2.0.5"
+  dependencies:
+    "@apollo/core-schema": ~0.3.0
+    chalk: ^4.1.0
+    js-levenshtein: ^1.1.6
+  peerDependencies:
+    graphql: ^16.0.0
+  checksum: 925eb69ea055110cb876317eb45137f490e432165a61adf0d1de41683d2031716d58efe243663f9e66f8c1d0a78d87b1c94c1def1c3eb1289dc8c1ab6138483a
+  languageName: node
+  linkType: hard
+
+"@apollo/federation@npm:0.36.2, @apollo/federation@npm:^0.36.2":
   version: 0.36.2
   resolution: "@apollo/federation@npm:0.36.2"
   dependencies:
@@ -227,12 +238,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/subgraph@npm:0.4.0, @apollo/subgraph@npm:^0.4.0, @apollo/subgraph@npm:^0.4.1, @apollo/subgraph@npm:^0.4.2":
+"@apollo/subgraph@npm:0.4.2":
+  version: 0.4.2
+  resolution: "@apollo/subgraph@npm:0.4.2"
+  peerDependencies:
+    graphql: ^15.8.0 || ^16.0.0
+  checksum: f5233d8d1a62148215f6e9ec35fbc181d778084715b30fe596cfc2572b51bc2be34f3a4150570c14dd0cc534ea59d6ab333f54c27790d13f5443367e98580aac
+  languageName: node
+  linkType: hard
+
+"@apollo/subgraph@npm:^0.4.2":
   version: 0.4.0
   resolution: "@apollo/subgraph@npm:0.4.0"
   peerDependencies:
     graphql: ^15.8.0 || ^16.0.0
   checksum: 27c971e2baff7e3cf2d9af8c6bcbb9f5a109a09458690bec099d46eda7643d0a6415b5bf2d07b31034dfa441ad801bb5cd01ec4073a7f0536ed69237e4ec5827
+  languageName: node
+  linkType: hard
+
+"@apollo/subgraph@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@apollo/subgraph@npm:2.0.5"
+  dependencies:
+    "@apollo/federation-internals": ^2.0.5
+  peerDependencies:
+    graphql: ^16.0.0
+  checksum: 11657e0eb6c121ee690280cb16a75fba18a341b150098f78e54785838dac84849b0527b9e4c11e9910d9d208d68989cb03e7e64b32088a2445df44d390db1592
   languageName: node
   linkType: hard
 
@@ -2225,7 +2256,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/apollo@npm:^10.0.19":
+"@nestjs/apollo@npm:10.0.19, @nestjs/apollo@npm:^10.0.19":
   version: 10.0.19
   resolution: "@nestjs/apollo@npm:10.0.19"
   dependencies:
@@ -2404,9 +2435,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/graphql@npm:^10.0.18":
-  version: 10.0.18
-  resolution: "@nestjs/graphql@npm:10.0.18"
+"@nestjs/graphql@npm:^10.0.21":
+  version: 10.0.21
+  resolution: "@nestjs/graphql@npm:10.0.21"
   dependencies:
     "@graphql-tools/merge": 8.3.0
     "@graphql-tools/schema": 8.5.0
@@ -2421,7 +2452,7 @@ __metadata:
     subscriptions-transport-ws: 0.11.0
     tslib: 2.4.0
     uuid: 8.3.2
-    ws: 8.8.0
+    ws: 8.8.1
   peerDependencies:
     "@apollo/subgraph": ^0.1.5 || ^0.3.0 || ^0.4.0 || ^2.0.0
     "@nestjs/common": ^8.2.3 || ^9.0.0
@@ -2434,7 +2465,7 @@ __metadata:
       optional: true
     ts-morph:
       optional: true
-  checksum: d6da456e6f804ca94ffcf38da952afe2743edd00334338299c976d473b072ea0c8e7ecd8b6a6f8ab811d1bcd6943c9c505963412b11cfb0127a5cb835e22055f
+  checksum: fe1d8645397a877b05198c338614145ea36d19e1e0e11dfc72564489af9d4735d3d682df2da841982c0beabd9537db4e91736cba2f23b74f67d05a71e3167761
   languageName: node
   linkType: hard
 
@@ -3201,6 +3232,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@protoplasm/recall@npm:^0.2":
+  version: 0.2.4
+  resolution: "@protoplasm/recall@npm:0.2.4"
+  checksum: e64207d5642963627f782e455af221311eab27513484d43c89cc7d9035b6563fc15754e6c1fdc804286d311a74459bf3999d5a8c436e21d553f518f5bcfde908
+  languageName: node
+  linkType: hard
+
 "@selderee/plugin-htmlparser2@npm:^0.6.0":
   version: 0.6.0
   resolution: "@selderee/plugin-htmlparser2@npm:0.6.0"
@@ -3270,8 +3308,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-applications@workspace:packages/the-last-hurrah-applications"
   dependencies:
-    "@apollo/federation": ^0.36.1
-    "@apollo/subgraph": 0.4.0
+    "@apollo/federation": ^0.36.2
+    "@apollo/subgraph": 0.4.2
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs-modules/mailer": ^1.8.1
@@ -3281,7 +3319,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3319,7 +3357,7 @@ __metadata:
     faker: ^6.6.6
     graphql: ^15.7.2
     graphql-request: ^4.3.0
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     husky: ^8.0.1
     ioredis: ^5.2.2
     jest: ^28.1.3
@@ -3349,8 +3387,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-authentication@workspace:packages/the-last-hurrah-authentication"
   dependencies:
-    "@apollo/federation": ^0.36.1
-    "@apollo/subgraph": 0.4.0
+    "@apollo/federation": ^0.36.2
+    "@apollo/subgraph": 0.4.2
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs-modules/mailer": ^1.8.1
@@ -3362,7 +3400,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3401,7 +3439,7 @@ __metadata:
     graphql-redis-subscriptions: ^2.5.0
     graphql-request: ^4.3.0
     hbs: ^4.2.0
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3433,8 +3471,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-commence@workspace:packages/the-last-hurrah-commence"
   dependencies:
-    "@apollo/federation": ^0.36.1
-    "@apollo/subgraph": ^0.4.0
+    "@apollo/federation": ^0.36.2
+    "@apollo/subgraph": ^2.0.5
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs/apollo": ^10.0.19
@@ -3443,7 +3481,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3473,7 +3511,7 @@ __metadata:
     eslint-plugin-prettier: ^4.2.1
     graphql: ^15.7.2
     graphql-type-json: ^0.3.2
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3501,21 +3539,21 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-comments@workspace:packages/the-last-hurrah-comments"
   dependencies:
-    "@apollo/federation": 0.36.1
-    "@apollo/subgraph": ^0.4.0
+    "@apollo/federation": 0.36.2
+    "@apollo/subgraph": 0.4.2
     "@casl/ability": ^5.4.4
     "@casl/prisma": ^2.0.0-alpha.3
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs-modules/mailer": ^1.8.1
-    "@nestjs/apollo": ^10.0.19
+    "@nestjs/apollo": 10.0.19
     "@nestjs/bull": ^0.6.0
     "@nestjs/class-validator": ^0.13.4
     "@nestjs/cli": ^9.0.0
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3555,7 +3593,7 @@ __metadata:
     graphql-transport-ws: ^1.9.0
     graphql-type-json: ^0.3.2
     graphql-ws: ^5.9.1
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3596,7 +3634,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/passport": ^9.0.0
     "@nestjs/platform-express": ^9.0.5
@@ -3627,7 +3665,7 @@ __metadata:
     graphql-redis-subscriptions: ^2.5.0
     graphql-type-json: ^0.3.2
     graphql-ws: ^5.9.1
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3654,9 +3692,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-federation@workspace:packages/the-last-hurrah-federation"
   dependencies:
-    "@apollo/federation": 0.36.1
     "@apollo/gateway": ^0.50.0
-    "@apollo/subgraph": ^0.4.0
     "@casl/ability": ^5.4.4
     "@casl/prisma": ^2.0.0-alpha.3
     "@grpc/grpc-js": ^1.6.8
@@ -3668,7 +3704,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3708,7 +3744,7 @@ __metadata:
     graphql-transport-ws: ^1.9.0
     graphql-type-json: ^0.3.2
     graphql-ws: ^5.9.1
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3741,8 +3777,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-notifications@workspace:packages/the-last-hurrah-notifications"
   dependencies:
-    "@apollo/federation": 0.36.1
-    "@apollo/subgraph": ^0.4.0
+    "@apollo/federation": 0.36.2
+    "@apollo/subgraph": ^2.0.5
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs/apollo": ^10.0.19
@@ -3750,7 +3786,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3808,7 +3844,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/passport": ^9.0.0
     "@nestjs/throttler": ^3.0.0
@@ -3849,8 +3885,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-subscriptions@workspace:packages/the-last-hurrah-subscriptions"
   dependencies:
-    "@apollo/federation": 0.36.1
-    "@apollo/subgraph": ^0.4.0
+    "@apollo/federation": 0.36.2
+    "@apollo/subgraph": ^2.0.5
     "@grpc/grpc-js": ^1.6.8
     "@grpc/proto-loader": ^0.7.0
     "@nestjs/apollo": ^10.0.19
@@ -3858,7 +3894,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3886,7 +3922,7 @@ __metadata:
     graphql-transport-ws: ^1.9.0
     graphql-type-json: ^0.3.2
     graphql-ws: ^5.9.1
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -3912,8 +3948,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-thread@workspace:packages/the-last-hurrah-threads"
   dependencies:
-    "@apollo/federation": 0.36.1
-    "@apollo/subgraph": ^0.4.0
+    "@apollo/federation": 0.36.2
+    "@apollo/subgraph": 0.4.2
     "@casl/ability": ^5.4.4
     "@casl/prisma": ^2.0.0-alpha.3
     "@grpc/grpc-js": ^1.6.8
@@ -3926,7 +3962,7 @@ __metadata:
     "@nestjs/common": ^9.0.5
     "@nestjs/config": ^2.2.0
     "@nestjs/core": ^9.0.5
-    "@nestjs/graphql": ^10.0.18
+    "@nestjs/graphql": ^10.0.21
     "@nestjs/jwt": ^9.0.0
     "@nestjs/microservices": ^9.0.5
     "@nestjs/passport": ^9.0.0
@@ -3965,7 +4001,7 @@ __metadata:
     graphql-transport-ws: ^1.9.0
     graphql-type-json: ^0.3.2
     graphql-ws: ^5.9.1
-    helmet: ^5.1.0
+    helmet: ^5.1.1
     ioredis: ^5.2.2
     jest: ^28.1.3
     joi: ^17.6.0
@@ -9905,10 +9941,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"helmet@npm:^5.1.0":
-  version: 5.1.0
-  resolution: "helmet@npm:5.1.0"
-  checksum: 076958ed8262b72e77276f9e7e9a5e3628b3a44bf39a64a856e919fd3d5a887d3a29b58c1729dfdb0645afd440e763d29a871e866f1fa658f91a718da82ca052
+"helmet@npm:^5.1.1":
+  version: 5.1.1
+  resolution: "helmet@npm:5.1.1"
+  checksum: b72ba26cc431804ad3b8ecdc18db95409a492cbb7a7e825efc27fc502b9433fec39fc083f2aad4fe7ed1a89a4287560b59f4435f9689eebbae6a2b61a1ec1b7d
   languageName: node
   linkType: hard
 
@@ -11541,6 +11577,13 @@ __metadata:
     html-beautify: js/bin/html-beautify.js
     js-beautify: js/bin/js-beautify.js
   checksum: 475146747ddfa233dedfdcba2c2c29cd0895730e6627455fa5dc388b61074fd856fc874cbd18da92b8dc5c04aea25eb46aec95a1e37b2c32f0dd25fb1f4c4698
+  languageName: node
+  linkType: hard
+
+"js-levenshtein@npm:^1.1.6":
+  version: 1.1.6
+  resolution: "js-levenshtein@npm:1.1.6"
+  checksum: 409f052a7f1141be4058d97da7860e08efd97fc588b7a4c5cfa0548bc04f6d576644dae65ab630266dff685d56fb90d494e03d4d79cb484c287746b4f1bf0694
   languageName: node
   linkType: hard
 
@@ -18259,9 +18302,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:8.8.0":
-  version: 8.8.0
-  resolution: "ws@npm:8.8.0"
+"ws@npm:8.8.1":
+  version: 8.8.1
+  resolution: "ws@npm:8.8.1"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ^5.0.2
@@ -18270,7 +18313,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 6ceed1ca1cb800ef60c7fc8346c7d5d73d73be754228eb958765abf5d714519338efa20ffe674167039486eb3a813aae5a497f8d319e16b4d96216a31df5bd95
+  checksum: 2152cf862cae0693f3775bc688a6afb2e989d19d626d215e70f5fcd8eb55b1c3b0d3a6a4052905ec320e2d7734e20aeedbf9744496d62f15a26ad79cf4cf7dae
   languageName: node
   linkType: hard
 

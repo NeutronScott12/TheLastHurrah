@@ -33,15 +33,15 @@
         "@apollo/subgraph": "0.4.0"
     },
     "dependencies": {
-        "@apollo/federation": "0.36.1",
-        "@apollo/subgraph": "^0.4.0",
+        "@apollo/federation": "0.36.2",
+        "@apollo/subgraph": "^2.0.5",
         "@grpc/grpc-js": "^1.6.8",
         "@grpc/proto-loader": "^0.7.0",
         "@nestjs/apollo": "^10.0.19",
         "@nestjs/common": "^9.0.5",
         "@nestjs/config": "^2.2.0",
         "@nestjs/core": "^9.0.5",
-        "@nestjs/graphql": "^10.0.18",
+        "@nestjs/graphql": "^10.0.21",
         "@nestjs/jwt": "^9.0.0",
         "@nestjs/microservices": "^9.0.5",
         "@nestjs/passport": "^9.0.0",

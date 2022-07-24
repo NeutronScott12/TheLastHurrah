@@ -17,7 +17,6 @@ import {
 import {
     CurrentUser,
     EmailSchema,
-    GqlAuthGuard,
     ICurrentUser,
     RegisterSchema,
     sendConfirmationEmail,
@@ -47,6 +46,7 @@ import { TwoFactorLoginSuccessResponse } from '../dto/responses/two-factor-succe
 import { ResendEmailCodeInput } from '../dto/inputs/resend-email-code.input'
 import { IContext } from '../../types'
 import { DeleteUserInput } from '../dto/inputs/delete-user.input'
+import { GqlAuthGuard } from '~/auth/graphql-auth.guard'
 
 @Resolver((of) => UserModel)
 export class UserResolver {
@@ -57,12 +57,17 @@ export class UserResolver {
 
     @ResolveReference()
     async resolveReference(reference: { __typename: string; id: string }) {
-        return this.userService.findUniqueUser({
+        console.log('REFERENCE', reference)
+        const result = await this.userService.findUniqueUser({
             where: {
                 id: reference.id,
             },
             include: { avatar: true, blocked_users: true },
         })
+
+        console.log('RESULT', result)
+
+        return result
     }
 
     @UseGuards(GqlAuthGuard)

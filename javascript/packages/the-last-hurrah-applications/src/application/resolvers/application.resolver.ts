@@ -64,9 +64,13 @@ export class ApplicationResolver {
         { application_short_name }: FetchApplicationByShortNameInput,
     ) {
         try {
-            return this.applicationService.findOneByName({
+            const application = await this.applicationService.findOneByName({
                 where: { short_name: application_short_name },
             })
+
+            console.log('APPLICATION', application)
+
+            return application
         } catch (error) {
             throw new NotFoundException({
                 success: false,

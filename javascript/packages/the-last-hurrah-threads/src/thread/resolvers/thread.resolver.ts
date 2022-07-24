@@ -335,23 +335,14 @@ export class ThreadResolver {
         @Args('deleteThreadInput') { id }: DeleteThreadInput, // @CurrentUser() { user_id }: ICurrentUser,
     ): Promise<StandardResponseModel> {
         try {
-            const response = await this.threadService.deleteThread(id)
-
-            if (response.success) {
-                throw new InternalServerErrorException()
-            }
+            await this.threadService.deleteThread(id)
 
             const result =
                 await this.commentGrpcService.deleteCommentsByThreadId({
                     thread_id: id,
                 })
 
-            if (!result.success) {
-                throw new InternalServerErrorException({
-                    success: false,
-                    message: result.message,
-                })
-            }
+            console.log('RESULT', result)
 
             return {
                 success: true,

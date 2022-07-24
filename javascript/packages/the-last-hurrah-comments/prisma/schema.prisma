@@ -22,14 +22,14 @@ model UpVoteRating {
   id           String   @id @default(uuid())
   recipient_id String
   author_id    String
-  Comment      Comment? @relation(fields: [commentId], references: [id])
+  Comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   commentId    String?
 }
 
 model DownVoteRating {
   id        String   @id @default(uuid())
   author_id String
-  Comment   Comment? @relation(fields: [commentId], references: [id])
+  Comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   commentId String?
 }
 

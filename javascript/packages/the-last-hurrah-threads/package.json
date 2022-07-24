@@ -31,12 +31,11 @@
         "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json"
     },
     "resolutions": {
-        "graphql": "^15.7.2",
-        "@apollo/subgraph": "0.4.0"
+        "graphql": "^15.7.2"
     },
     "dependencies": {
-        "@apollo/federation": "0.36.1",
-        "@apollo/subgraph": "^0.4.0",
+        "@apollo/federation": "0.36.2",
+        "@apollo/subgraph": "0.4.2",
         "@casl/ability": "^5.4.4",
         "@casl/prisma": "^2.0.0-alpha.3",
         "@grpc/grpc-js": "^1.6.8",
@@ -48,7 +47,7 @@
         "@nestjs/common": "^9.0.5",
         "@nestjs/config": "^2.2.0",
         "@nestjs/core": "^9.0.5",
-        "@nestjs/graphql": "^10.0.18",
+        "@nestjs/graphql": "^10.0.21",
         "@nestjs/jwt": "^9.0.0",
         "@nestjs/microservices": "^9.0.5",
         "@nestjs/passport": "^9.0.0",
@@ -72,7 +71,7 @@
         "graphql-transport-ws": "^1.9.0",
         "graphql-type-json": "^0.3.2",
         "graphql-ws": "^5.9.1",
-        "helmet": "^5.1.0",
+        "helmet": "^5.1.1",
         "ioredis": "^5.2.2",
         "joi": "^17.6.0",
         "moment": "^2.29.4",

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common'
-import { GqlAuthGuard } from '@thelasthurrah/the-last-hurrah-shared'
 import { ClientsModule } from '@nestjs/microservices'
 import { BullModule } from '@nestjs/bull'
 
@@ -26,6 +25,7 @@ import { CommentEmailService } from './services/email.service'
 import { APPLICATION_QUEUE, COMMENT_QUEUE } from 'src/constants'
 import { CommentStatsResolver } from './resolvers/comment-stats.resolver'
 import { CommentController } from './controllers/comment.controller'
+import { GqlAuthGuard } from '~/auth/graphql-auth.guard'
 
 @Module({
     providers: [

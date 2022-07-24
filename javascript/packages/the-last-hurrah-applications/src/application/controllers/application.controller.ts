@@ -40,7 +40,6 @@ export class ApplicationController {
         args: ICheckValidUserArgs,
     ): Promise<ICheckValidUserResponse> {
         try {
-            console.log('CHECK_VALID_USER_ARGS_GRPC', args)
             return this.applicationService.check_valid_user(args)
         } catch (error) {
             throw new RpcException({

@@ -7,6 +7,7 @@
 
 /* tslint:disable */
 /* eslint-disable */
+
 export enum REPORT_REASON {
     DISAGREE = "DISAGREE",
     SPAM = "SPAM",
