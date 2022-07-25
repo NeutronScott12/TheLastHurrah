@@ -68,8 +68,6 @@ export class ApplicationResolver {
                 where: { short_name: application_short_name },
             })
 
-            console.log('APPLICATION', application)
-
             return application
         } catch (error) {
             throw new NotFoundException({

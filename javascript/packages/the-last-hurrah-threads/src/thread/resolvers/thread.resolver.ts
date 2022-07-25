@@ -46,10 +46,10 @@ export class ThreadResolver {
         private readonly prisma: PrismaService,
     ) {}
 
-    // @ResolveField('pinned_comment', () => CommentModel)
-    // get_pinned_comment(@Parent() thread: ThreadModel) {
-    //     return { __typename: 'CommentModel', id: thread.pinned_comment_id }
-    // }
+    @ResolveField('pinned_comment', () => CommentModel)
+    get_pinned_comment(@Parent() thread: ThreadModel) {
+        return { __typename: 'CommentModel', id: thread.pinned_comment_id }
+    }
 
     @ResolveReference()
     async resolveReference(reference: {
@@ -65,6 +65,8 @@ export class ThreadResolver {
     //@TODO fix this
     @ResolveField('parent_application', (of) => ApplicationModel)
     async getParentApplication(@Parent() { application_id }: ThreadModel) {
+        console.log('APPLICATION_ID', application_id)
+
         return { __typename: 'ApplicationModel', id: application_id }
     }
 

@@ -149,7 +149,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/gateway@npm:^0.50.0":
+"@apollo/gateway@npm:^0.50.2":
   version: 0.50.2
   resolution: "@apollo/gateway@npm:0.50.2"
   dependencies:
@@ -3335,7 +3335,7 @@ __metadata:
     "@types/express": ^4.17.13
     "@types/faker": ^6.6.9
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/passport": ^1.0.9
     "@types/ramda": ^0.28.15
     "@types/supertest": ^2.0.12
@@ -3415,7 +3415,7 @@ __metadata:
     "@types/express": ^4.17.13
     "@types/faker": ^6.6.9
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/passport-local": ^1.0.34
     "@types/ramda": ^0.28.15
     "@types/supertest": ^2.0.12
@@ -3494,7 +3494,7 @@ __metadata:
     "@thelasthurrah/the-last-hurrah-shared": 0.1.26
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
     "@types/supertest": ^2.0.12
@@ -3570,7 +3570,7 @@ __metadata:
     "@types/compression": ^1.7.2
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/nodemailer": ^6.4.4
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
@@ -3646,7 +3646,7 @@ __metadata:
     "@types/bull": ^3.15.8
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/nodemailer": ^6.4.4
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
@@ -3692,7 +3692,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-federation@workspace:packages/the-last-hurrah-federation"
   dependencies:
-    "@apollo/gateway": ^0.50.0
+    "@apollo/gateway": ^0.50.2
     "@casl/ability": ^5.4.4
     "@casl/prisma": ^2.0.0-alpha.3
     "@grpc/grpc-js": ^1.6.8
@@ -3719,7 +3719,7 @@ __metadata:
     "@types/csurf": ^1.11.2
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/passport-local": ^1.0.34
     "@types/supertest": ^2.0.12
     "@typescript-eslint/eslint-plugin": ^5.30.7
@@ -3798,7 +3798,7 @@ __metadata:
     "@thelasthurrah/the-last-hurrah-shared": ^0.1.8
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
     "@types/ramda": ^0.28.15
@@ -3849,7 +3849,7 @@ __metadata:
     "@nestjs/passport": ^9.0.0
     "@nestjs/throttler": ^3.0.0
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/supertest": ^2.0.12
     "@typescript-eslint/eslint-plugin": ^5.30.7
     "@typescript-eslint/parser": ^5.30.7
@@ -3905,7 +3905,7 @@ __metadata:
     "@thelasthurrah/the-last-hurrah-shared": ^0.1.8
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/supertest": ^2.0.12
     "@typescript-eslint/eslint-plugin": ^5.30.7
     "@typescript-eslint/parser": ^5.30.7
@@ -3977,7 +3977,7 @@ __metadata:
     "@types/bull": ^3.15.8
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.0.6
+    "@types/node": ^18.6.1
     "@types/nodemailer": ^6.4.4
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
@@ -4461,10 +4461,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.0.6":
-  version: 18.0.6
-  resolution: "@types/node@npm:18.0.6"
-  checksum: 780f8885a6b6eb12f4c0246617747fdc37a451931b3c01ce8148d356c0903b705dcb16cc6a914de63d48b0dc1b002c7a3dfae681f580e1761aa551d3cd996813
+"@types/node@npm:^18.6.1":
+  version: 18.6.1
+  resolution: "@types/node@npm:18.6.1"
+  checksum: 06331f68bc73d93b73977ae19ca87818e004bc7b8e70b0d4f73b0ea5e341a4a1ba6f0e79db8fb75a841af2b8d74552d6b9a8f846b267954689f57effedcf5d77
   languageName: node
   linkType: hard
 

@@ -80,6 +80,8 @@ export class ThreadResolver {
             id,
         )
 
+        // console.log('RESPONSE', response)
+
         return response
     }
 }
