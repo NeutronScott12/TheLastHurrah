@@ -12,17 +12,15 @@ import { CommentModel } from './comment.model'
 
 @ObjectType()
 @Directive('@extends')
-@Directive(
-    '@key(fields: "id pinned_comment_id subscribed_users_ids application_id")',
-)
+@Directive('@key(fields: "id subscribed_users_ids application_id")')
 export class ThreadModel {
     @Directive('@external')
     @Field(() => String, { description: 'UUID for Thread' })
     id: string
 
-    @Directive('@external')
-    @Field(() => String, { nullable: true })
-    pinned_comment_id: string
+    // @Directive('@external')
+    // @Field(() => String, { nullable: true })
+    // pinned_comment_id: string
 
     @Directive('@external')
     @Field()
@@ -32,8 +30,8 @@ export class ThreadModel {
     @Field(() => [String])
     subscribed_users_ids: string[]
 
-    @Field(() => CommentModel, { nullable: true })
-    pinned_comment: CommentModel
+    // @Field(() => CommentModel, { nullable: true })
+    // pinned_comment: CommentModel
 
     @Field(() => [CommentModel])
     thread_comments: CommentModel[]

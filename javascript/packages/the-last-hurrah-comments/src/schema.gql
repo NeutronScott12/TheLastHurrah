@@ -117,10 +117,8 @@ type ApplicationModel {
 type ThreadModel {
   """UUID for Thread"""
   id: String!
-  pinned_comment_id: String
   application_id: String!
   subscribed_users_ids: [String!]!
-  pinned_comment: CommentModel
   thread_comments(commentsByUserIdInput: CommentsByUserIdInput, fetchThreadCommentsBySort: FetchThreadCommentsBySort!): FetchCommentByThreadIdResponse!
 }
 

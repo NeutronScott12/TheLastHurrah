@@ -393,16 +393,22 @@ export class CommentResolver {
 
             pubSub.publish(COMMENT_ADDED, newComment)
 
-            await this.notificationService.createProfileNotification({
-                message: `${replied_user.username} has replied to your comment`,
-                userId: user_response.id,
-                url: 'localhost:3000',
-            })
+            if (comment.user_id !== parent_comment.user_id) {
+                const thread = await this.threadService.fetchThreadById({
+                    id: comment.thread_id,
+                })
 
-            await this.commentQueueProducer.reply_comment_email({
-                username: replied_user.username,
-                email: user_response.email,
-            })
+                await this.notificationService.createProfileNotification({
+                    message: `${replied_user.username} has replied to your comment`,
+                    userId: user_response.id,
+                    url: thread.website_url,
+                })
+
+                await this.commentQueueProducer.reply_comment_email({
+                    username: replied_user.username,
+                    email: user_response.email,
+                })
+            }
 
             return newComment
         } catch (error) {

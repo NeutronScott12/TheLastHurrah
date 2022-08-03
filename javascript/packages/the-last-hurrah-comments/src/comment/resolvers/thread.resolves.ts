@@ -14,25 +14,25 @@ import { FetchThreadCommentsBySort } from '../dto/inputs/fetch_comments_by_threa
 export class ThreadResolver {
     constructor(private readonly commentService: CommentService) {}
 
-    @ResolveField('pinned_comment', () => CommentModel, { nullable: true })
-    public async getPinnedComment(
-        @Parent() { pinned_comment_id }: ThreadModel,
-    ) {
-        try {
-            if (pinned_comment_id) {
-                return await this.commentService.findOneById({
-                    where: { id: pinned_comment_id },
-                })
-            } else {
-                return null
-            }
-        } catch (error) {
-            throw new NotFoundException({
-                success: false,
-                message: error.message,
-            })
-        }
-    }
+    // @ResolveField('pinned_comment', () => CommentModel, { nullable: true })
+    // public async getPinnedComment(
+    //     @Parent() { pinned_comment_id }: ThreadModel,
+    // ) {
+    //     try {
+    //         if (pinned_comment_id) {
+    //             return await this.commentService.findOneById({
+    //                 where: { id: pinned_comment_id },
+    //             })
+    //         } else {
+    //             return null
+    //         }
+    //     } catch (error) {
+    //         throw new NotFoundException({
+    //             success: false,
+    //             message: error.message,
+    //         })
+    //     }
+    // }
 
     @ResolveField('thread_comments', () => FetchCommentByThreadIdResponse)
     public async getThreadComments(

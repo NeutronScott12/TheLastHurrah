@@ -196,10 +196,8 @@ export interface ApplicationModel {
 
 export interface ThreadModel {
     id: string;
-    pinned_comment_id?: Nullable<string>;
     application_id: string;
     subscribed_users_ids: string[];
-    pinned_comment?: Nullable<CommentModel>;
     thread_comments: FetchCommentByThreadIdResponse;
 }
 
