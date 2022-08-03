@@ -46,9 +46,14 @@ export class ThreadResolver {
         private readonly prisma: PrismaService,
     ) {}
 
-    @ResolveField('pinned_comment', () => CommentModel)
-    get_pinned_comment(@Parent() thread: ThreadModel) {
-        return { __typename: 'CommentModel', id: thread.pinned_comment_id }
+    @ResolveField('pinned_comment', () => CommentModel, { nullable: true })
+    async get_pinned_comment(@Parent() thread: ThreadModel) {
+        console.log('THREAD', thread)
+        if (thread.pinned_comment_id) {
+            return { __typename: 'CommentModel', id: thread.pinned_comment_id }
+        } else {
+            return null
+        }
     }
 
     @ResolveReference()

@@ -12,9 +12,7 @@ import { PollEntity } from './poll.entity'
 //   }
 
 @ObjectType()
-@Directive(
-    '@key(fields: "id pinned_comment_id subscribed_users_ids application_id")',
-)
+@Directive('@key(fields: "id subscribed_users_ids application_id")')
 export class ThreadModel {
     @Field(() => String, { description: 'UUID for Thread' })
     id: string

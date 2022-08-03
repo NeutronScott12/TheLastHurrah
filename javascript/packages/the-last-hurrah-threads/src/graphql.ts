@@ -109,7 +109,7 @@ export interface ThreadModel {
     subscribed_users_ids: string[];
     poll?: Nullable<PollEntity>;
     parent_application: ApplicationModel;
-    pinned_comment: CommentModel;
+    pinned_comment?: Nullable<CommentModel>;
     thread_stats: ViewEntity;
 }
 
@@ -137,6 +137,7 @@ export interface ViewEntity {
 
 export interface CommentModel {
     id: string;
+    replied_to_id?: Nullable<string>;
 }
 
 export interface IQuery {

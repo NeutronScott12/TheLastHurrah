@@ -51,7 +51,7 @@ type ThreadModel {
   subscribed_users_ids: [String!]!
   poll: PollEntity
   parent_application: ApplicationModel!
-  pinned_comment: CommentModel!
+  pinned_comment: CommentModel
   thread_stats(fetchThreadStats: FetchThreadStats!): ViewEntity!
 }
 
@@ -84,6 +84,7 @@ type ViewEntity {
 
 type CommentModel {
   id: String!
+  replied_to_id: String
 }
 
 type Query {
