@@ -272,7 +272,24 @@ export class CommentResolver {
         @Context() { pubSub }: IContext,
     ) {
         try {
-            console.log('WORKING')
+            const thread = await this.threadService.fetchThreadById({
+                id: input.thread_id,
+            })
+
+            if (!thread) {
+                return new NotFoundException({
+                    success: false,
+                    message: 'Could not fetch Thread with ID provided',
+                })
+            }
+
+            if (thread.thread_closed) {
+                return new ForbiddenException({
+                    success: false,
+                    message: 'Thread locked, no comments allowed',
+                })
+            }
+
             const data = await CommentModerationGenerator(
                 input,
                 user_id,
@@ -330,6 +347,24 @@ export class CommentResolver {
         @Context() { pubSub }: IContext,
     ) {
         try {
+            const thread = await this.threadService.fetchThreadById({
+                id: input.thread_id,
+            })
+
+            if (!thread) {
+                return new NotFoundException({
+                    success: false,
+                    message: 'Could not fetch Thread with ID provided',
+                })
+            }
+
+            if (thread.thread_closed) {
+                return new ForbiddenException({
+                    success: false,
+                    message: 'Thread locked, no comments allowed',
+                })
+            }
+
             const data = await CommentModerationGenerator(
                 input,
                 user_id,

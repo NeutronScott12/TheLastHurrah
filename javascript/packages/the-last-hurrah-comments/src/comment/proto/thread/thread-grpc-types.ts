@@ -25,6 +25,7 @@ export interface Thread {
     website_url: string
     pinned_comment_id: string
     application_id: string
+    thread_closed: boolean
 }
 
 export interface ActionComplete {
