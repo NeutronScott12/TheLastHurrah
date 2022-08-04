@@ -1,14 +1,15 @@
-import { Prisma } from '.prisma/client'
 import {
     Injectable,
     InternalServerErrorException,
     NotFoundException,
 } from '@nestjs/common'
+import { Prisma } from '.prisma/client'
 import { ICurrentUser } from '@thelasthurrah/the-last-hurrah-shared'
 
 import { PrismaService } from '../../prisma/prisma.service'
 import { FindOrCreateOneThreadInput } from '../dto/input/find-or-create-one.input'
 import { StandardResponseModel } from '../dto/response/standard-response.response'
+import { ThreadTaskProducer } from '../producer/thread-task.producer'
 import { ApplicationGrpcService } from './application-grpc.service'
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ThreadService {
     constructor(
         private prismaService: PrismaService,
         private readonly applicationGrpcService: ApplicationGrpcService,
+        private readonly threadTaskProducer: ThreadTaskProducer,
     ) {}
 
     async findAll(args: Prisma.ThreadFindManyArgs) {
@@ -99,10 +101,22 @@ export class ThreadService {
                 include: { views: true },
             })
 
+            console.log('TEST', application_id, newThread)
+
             await this.applicationGrpcService.updateThreadIds({
                 application_id,
                 thread_ids: [newThread.id],
             })
+
+            console.log('TASK STARTED', newThread)
+
+            await this.threadTaskProducer.setThreadClose(
+                {
+                    thread_id: newThread.id,
+                    thread_title: newThread.title,
+                },
+                60000,
+            )
 
             return newThread
         } catch (error) {

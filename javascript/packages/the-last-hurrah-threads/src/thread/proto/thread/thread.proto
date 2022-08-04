@@ -44,6 +44,7 @@ message Thread {
     string website_url = 3;
     string pinned_comment_id = 4;
     string application_id = 5;
+    bool thread_closed = 6;
 }
 
 message ActionComplete {

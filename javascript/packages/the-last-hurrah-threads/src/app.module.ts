@@ -5,7 +5,6 @@ import { ConfigModule } from '@nestjs/config'
 import { GraphQLModule } from '@nestjs/graphql'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { AuthModule } from './auth/auth.module'
-// import { AuthModule } from './auth/auth.module'
 
 import { asyncBullConfigOptions } from './configs/bull.config'
 import { cacheConfigAsync } from './configs/cache.config'
