@@ -2,7 +2,7 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-directive @key(fields: String!) on OBJECT | INTERFACE
+directive @key(fields: String!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
 directive @extends on OBJECT | INTERFACE
 
@@ -11,6 +11,16 @@ directive @external on OBJECT | FIELD_DEFINITION
 directive @requires(fields: String!) on FIELD_DEFINITION
 
 directive @provides(fields: String!) on FIELD_DEFINITION
+
+directive @shareable on FIELD_DEFINITION | OBJECT
+
+directive @link(url: String!, import: [link__Import]) on SCHEMA
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @override(from: String!) on FIELD_DEFINITION
 
 type SubscriptionEntity {
   id: String!
@@ -97,6 +107,8 @@ type CommentModel {
 
 type ThreadModel {
   id: String!
+  application_id: String!
+  subscribed_users_ids: [String!]!
 }
 
 type Query {
@@ -196,3 +208,5 @@ input UnBlockUserFromApplicationInput {
 input ChangeSubscriptionPlanInput {
   id: String!
 }
+
+scalar link__Import

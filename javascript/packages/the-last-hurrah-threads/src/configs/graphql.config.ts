@@ -11,7 +11,6 @@ import { join } from 'path'
 import Redis from 'ioredis'
 import { IContext } from 'src/types'
 // import GraphQLJSON from 'graphql-type-json'
-import { ThreadModel } from 'src/thread/entities/thread.entity'
 import { ApplicationModel } from 'src/thread/entities/application.entity'
 import { configOptions } from './config'
 
@@ -29,7 +28,10 @@ class GraphqlConfig {
                     port: configService.get('REDIS_PORT'),
                 }),
             }),
-            autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+            autoSchemaFile: {
+                path: join(process.cwd(), 'src/schema.gql'),
+                federation: { version: 2 },
+            },
             debug: configService.get('GRAPHQL_DEBUG'),
             playground: configService.get('GRAPHQL_PLAYGROUND'),
             introspection: configService.get('GRAPHQL_INTROPECTION'),

@@ -35,6 +35,9 @@ export class ThreadModel {
     @Field(() => [String])
     subscribed_users_ids: string[]
 
+    @Field(() => Boolean)
+    thread_closed: boolean
+
     @Field(() => PollEntity, { nullable: true })
     poll: PollEntity
 

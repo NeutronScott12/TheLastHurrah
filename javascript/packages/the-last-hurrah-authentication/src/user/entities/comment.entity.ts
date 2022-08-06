@@ -2,7 +2,6 @@ import { ObjectType, Field, Directive } from '@nestjs/graphql'
 import { UserModel } from './user.entity'
 
 @ObjectType()
-@Directive('@extends')
 @Directive('@key(fields: "id replied_to_id")')
 export class CommentModel {
     @Field(() => String)

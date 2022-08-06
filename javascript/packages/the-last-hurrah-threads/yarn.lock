@@ -62,7 +62,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/federation@npm:0.36.2":
+"@apollo/core-schema@npm:~0.3.0":
+  version: 0.3.0
+  resolution: "@apollo/core-schema@npm:0.3.0"
+  dependencies:
+    "@protoplasm/recall": ^0.2
+  peerDependencies:
+    graphql: ^15 || ^16
+  checksum: d0cb0e2f06d7bd934e00322f1775b9404d82c208d1c3f102dd2ee66f6989fb0542c1cd844a5c51edd42e1a0e682db6a45660fa408790e379f0aa136c43b85ac5
+  languageName: node
+  linkType: hard
+
+"@apollo/federation-internals@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@apollo/federation-internals@npm:2.0.5"
+  dependencies:
+    "@apollo/core-schema": ~0.3.0
+    chalk: ^4.1.0
+    js-levenshtein: ^1.1.6
+  peerDependencies:
+    graphql: ^16.0.0
+  checksum: 925eb69ea055110cb876317eb45137f490e432165a61adf0d1de41683d2031716d58efe243663f9e66f8c1d0a78d87b1c94c1def1c3eb1289dc8c1ab6138483a
+  languageName: node
+  linkType: hard
+
+"@apollo/federation@npm:^0.36.1":
   version: 0.36.2
   resolution: "@apollo/federation@npm:0.36.2"
   dependencies:
@@ -99,12 +123,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/subgraph@npm:0.4.2, @apollo/subgraph@npm:^0.4.2":
+"@apollo/subgraph@npm:^0.4.2":
   version: 0.4.2
   resolution: "@apollo/subgraph@npm:0.4.2"
   peerDependencies:
     graphql: ^15.8.0 || ^16.0.0
   checksum: f5233d8d1a62148215f6e9ec35fbc181d778084715b30fe596cfc2572b51bc2be34f3a4150570c14dd0cc534ea59d6ab333f54c27790d13f5443367e98580aac
+  languageName: node
+  linkType: hard
+
+"@apollo/subgraph@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@apollo/subgraph@npm:2.0.5"
+  dependencies:
+    "@apollo/federation-internals": ^2.0.5
+  peerDependencies:
+    graphql: ^16.0.0
+  checksum: 11657e0eb6c121ee690280cb16a75fba18a341b150098f78e54785838dac84849b0527b9e4c11e9910d9d208d68989cb03e7e64b32088a2445df44d390db1592
   languageName: node
   linkType: hard
 
@@ -2097,6 +2132,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@protoplasm/recall@npm:^0.2":
+  version: 0.2.4
+  resolution: "@protoplasm/recall@npm:0.2.4"
+  checksum: e64207d5642963627f782e455af221311eab27513484d43c89cc7d9035b6563fc15754e6c1fdc804286d311a74459bf3999d5a8c436e21d553f518f5bcfde908
+  languageName: node
+  linkType: hard
+
 "@selderee/plugin-htmlparser2@npm:^0.6.0":
   version: 0.6.0
   resolution: "@selderee/plugin-htmlparser2@npm:0.6.0"
@@ -2187,8 +2229,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@thelasthurrah/the-last-hurrah-thread@workspace:."
   dependencies:
-    "@apollo/federation": 0.36.2
-    "@apollo/subgraph": 0.4.2
+    "@apollo/federation": ^0.36.1
+    "@apollo/subgraph": ^2.0.5
     "@casl/ability": ^6.0.0
     "@casl/prisma": ^2.0.0-alpha.3
     "@grpc/grpc-js": ^1.6.8
@@ -2218,8 +2260,8 @@ __metadata:
     "@types/cron": ^2.0.0
     "@types/express": ^4.17.13
     "@types/jest": ^28.1.6
-    "@types/node": ^18.6.3
-    "@types/nodemailer": ^6.4.4
+    "@types/node": ^18.6.4
+    "@types/nodemailer": ^6.4.5
     "@types/passport-jwt": ^3.0.6
     "@types/passport-local": ^1.0.34
     "@types/supertest": ^2.0.12
@@ -2236,7 +2278,7 @@ __metadata:
     eslint: ^8.21.0
     eslint-config-prettier: ^8.5.0
     eslint-plugin-prettier: ^4.2.1
-    graphql: ^15.7.2
+    graphql: ^16.5.0
     graphql-redis-subscriptions: ^2.5.0
     graphql-subscriptions: ^2.0.0
     graphql-transport-ws: ^1.9.0
@@ -2677,19 +2719,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.6.3":
-  version: 18.6.3
-  resolution: "@types/node@npm:18.6.3"
-  checksum: 38495b8fd27200d2b7ab9ccd8c1e2475d2411fba15330f2cba869a85ef79dd42382a2658c8dd298ace8c21ed3bfafcdea408faecd74928b144377d07d00e7c8c
+"@types/node@npm:^18.6.4":
+  version: 18.6.4
+  resolution: "@types/node@npm:18.6.4"
+  checksum: fc453dd2b541f5812ba1a8f957f577727cf2d8aee886f1d5c03eb153b2b3373d2e0953c5bd2b7a5b184073bc317f54ec91f1ec4830a58eda4a833e90654021de
   languageName: node
   linkType: hard
 
-"@types/nodemailer@npm:^6.4.4":
-  version: 6.4.4
-  resolution: "@types/nodemailer@npm:6.4.4"
+"@types/nodemailer@npm:^6.4.5":
+  version: 6.4.5
+  resolution: "@types/nodemailer@npm:6.4.5"
   dependencies:
     "@types/node": "*"
-  checksum: 16ed1bad2cd8471fd3b026471e234da33ba3b65935dc44b31be3145eff7bdb067eb4d08ec4b41d23339b988075299abc1a0c0fe77b99f04ca235827bca95af81
+  checksum: ecbe34a6eb5559bdca58115b5c03ff048896e14dc7ea6426b3fdfc03484764eb9e4100fcff37b96d012543ca47238c973d0f5bbfb1ab5a2d1f1f25d494714c59
   languageName: node
   linkType: hard
 
@@ -6744,10 +6786,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql@npm:^15.7.2":
-  version: 15.8.0
-  resolution: "graphql@npm:15.8.0"
-  checksum: 423325271db8858428641b9aca01699283d1fe5b40ef6d4ac622569ecca927019fce8196208b91dd1d8eb8114f00263fe661d241d0eb40c10e5bfd650f86ec5e
+"graphql@npm:^16.5.0":
+  version: 16.5.0
+  resolution: "graphql@npm:16.5.0"
+  checksum: a82a926d085818934d04fdf303a269af170e79de943678bd2726370a96194f9454ade9d6d76c2de69afbd7b9f0b4f8061619baecbbddbe82125860e675ac219e
   languageName: node
   linkType: hard
 
@@ -8108,6 +8150,13 @@ __metadata:
     html-beautify: js/bin/html-beautify.js
     js-beautify: js/bin/js-beautify.js
   checksum: ec0c2e12804f7eb556b0d77c12325f2a3ab3451f03d9c6f4639cec1353b6b04711898f5b08a34449719ce244c4c1621edd7ed35d49a10a598b1b71b0ff184805
+  languageName: node
+  linkType: hard
+
+"js-levenshtein@npm:^1.1.6":
+  version: 1.1.6
+  resolution: "js-levenshtein@npm:1.1.6"
+  checksum: 409f052a7f1141be4058d97da7860e08efd97fc588b7a4c5cfa0548bc04f6d576644dae65ab630266dff685d56fb90d494e03d4d79cb484c287746b4f1bf0694
   languageName: node
   linkType: hard
 

@@ -2,7 +2,6 @@ import { Directive, Field, ObjectType } from '@nestjs/graphql'
 import { UserModel } from './user.entity'
 
 @ObjectType()
-@Directive('@extends')
 @Directive('@key(fields: "id customer_id")')
 export class OrderEntity {
     @Directive('@external')

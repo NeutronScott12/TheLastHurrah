@@ -64,6 +64,7 @@ export class CommentModel {
     @Field(() => Boolean)
     approved: boolean
 
+    @Directive('@shareable')
     @Field((type) => String, { nullable: true })
     replied_to_id?: string
 

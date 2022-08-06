@@ -1,5 +1,7 @@
 // import { NotFoundException } from '@nestjs/common'
-import { Resolver } from '@nestjs/graphql'
+import { NotFoundException } from '@nestjs/common'
+import { Parent, ResolveField, Resolver } from '@nestjs/graphql'
+import { ApplicationModel } from '../entities/application.entity'
 // import { ApplicationModel } from '../entities/application.entity'
 import { ThreadModel } from '../entities/thread.entity'
 import { ApplicationService } from '../services/application.service'
@@ -9,7 +11,7 @@ export class ThreadResolver {
     constructor(private readonly applicationService: ApplicationService) {}
 
     // @ResolveField('parent_application', (returns) => ApplicationModel)
-    // get_parent_application(@Parent() { application_id }: ThreadModel) {
+    // async get_parent_application(@Parent() { application_id }: ThreadModel) {
     //     try {
     //         console.log('PARENT_APPLICATION', application_id)
     //         return this.applicationService.findOneById({

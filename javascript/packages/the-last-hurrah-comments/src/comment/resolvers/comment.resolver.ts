@@ -70,7 +70,6 @@ export class CommentResolver {
     @ResolveField('author', (returns) => UserModel)
     async getAuthor(@Parent() comment: CommentModel) {
         const { user_id } = comment
-        console.log('USER_ID', user_id)
         return { __typename: 'UserModel', id: user_id }
     }
 

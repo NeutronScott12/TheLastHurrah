@@ -206,10 +206,11 @@ export class ApplicationController {
         }
     }
 
+    @Public()
     @GrpcMethod(APPLICATION_GRPC_SERVER, 'updateThreadIds')
     async updateThreadsIds(args: UpdateThreadIdsArgs): Promise<ActionComplete> {
         try {
-            if (args) {
+            if (!args) {
                 throw new Error('Invalid Arguments')
             }
 

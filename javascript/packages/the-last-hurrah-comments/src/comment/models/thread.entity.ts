@@ -11,7 +11,6 @@ import { CommentModel } from './comment.model'
 //   }
 
 @ObjectType()
-@Directive('@extends')
 @Directive('@key(fields: "id subscribed_users_ids application_id")')
 export class ThreadModel {
     @Directive('@external')

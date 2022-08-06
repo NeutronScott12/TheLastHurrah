@@ -2,16 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-directive @key(fields: String!) on OBJECT | INTERFACE
-
-directive @extends on OBJECT | INTERFACE
-
-directive @external on OBJECT | FIELD_DEFINITION
-
-directive @requires(fields: String!) on FIELD_DEFINITION
-
-directive @provides(fields: String!) on FIELD_DEFINITION
-
 type VoteEntity {
   id: String!
   user_id: String!
@@ -49,6 +39,7 @@ type ThreadModel {
   application_id: String!
   commenters_ids: [String!]!
   subscribed_users_ids: [String!]!
+  thread_closed: Boolean!
   poll: PollEntity
   parent_application: ApplicationModel!
   pinned_comment: CommentModel

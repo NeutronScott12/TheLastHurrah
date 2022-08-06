@@ -107,6 +107,7 @@ export interface ThreadModel {
     application_id: string;
     commenters_ids: string[];
     subscribed_users_ids: string[];
+    thread_closed: boolean;
     poll?: Nullable<PollEntity>;
     parent_application: ApplicationModel;
     pinned_comment?: Nullable<CommentModel>;

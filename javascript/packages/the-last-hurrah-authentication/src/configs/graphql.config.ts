@@ -35,7 +35,12 @@ class GraphqlOptions {
                     port: configService.get('REDIS_PORT'),
                 }),
             }),
-            autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+            autoSchemaFile: {
+                path: join(process.cwd(), 'src/schema.gql'),
+                federation: {
+                    version: 2,
+                },
+            },
             debug: configService.get('GRAPHQL_DEBUG'),
             playground: configService.get('GRAPHQL_PLAYGROUND'),
             introspection: configService.get('GRAPHQL_INTROSPECTION'),
