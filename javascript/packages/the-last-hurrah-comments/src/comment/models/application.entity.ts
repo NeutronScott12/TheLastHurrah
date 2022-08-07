@@ -7,23 +7,18 @@ import { CommentModel } from './comment.model'
 )
 export class ApplicationModel {
     @Field(() => String)
-    @Directive('@external')
     id: string
 
     @Field((type) => [String])
-    @Directive('@external')
     moderators_ids: string[]
 
     @Field((type) => [String])
-    @Directive('@external')
     authenticated_users_ids: string[]
 
     @Field((type) => [String])
-    @Directive('@external')
     thread_ids: string[]
 
     @Field((type) => [String])
-    @Directive('@external')
     banned_users_by_id: string[]
 
     @Field((type) => CommentModel)

@@ -3524,7 +3524,7 @@ __metadata:
     eslint: ^8.21.0
     eslint-config-prettier: ^8.5.0
     eslint-plugin-prettier: ^4.2.1
-    graphql: ^15.7.2
+    graphql: ^16.5.0
     graphql-type-json: ^0.3.2
     helmet: ^5.1.1
     ioredis: ^5.2.2

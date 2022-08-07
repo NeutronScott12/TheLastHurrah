@@ -60,6 +60,11 @@ type ApplicationModel {
   threads: [ThreadModel!]!
 }
 
+type CommentModel {
+  id: String!
+  replied_to_id: String
+}
+
 type StandardResponseModel {
   success: Boolean!
   message: String!
@@ -71,11 +76,6 @@ type ViewEntity {
   view_count: Int!
   created_at: DateTime!
   updated_at: DateTime!
-}
-
-type CommentModel {
-  id: String!
-  replied_to_id: String
 }
 
 type Query {

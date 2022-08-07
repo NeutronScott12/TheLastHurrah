@@ -123,6 +123,11 @@ export interface ApplicationModel {
     threads: ThreadModel[];
 }
 
+export interface CommentModel {
+    id: string;
+    replied_to_id?: Nullable<string>;
+}
+
 export interface StandardResponseModel {
     success: boolean;
     message: string;
@@ -134,11 +139,6 @@ export interface ViewEntity {
     view_count: number;
     created_at: DateTime;
     updated_at: DateTime;
-}
-
-export interface CommentModel {
-    id: string;
-    replied_to_id?: Nullable<string>;
 }
 
 export interface IQuery {

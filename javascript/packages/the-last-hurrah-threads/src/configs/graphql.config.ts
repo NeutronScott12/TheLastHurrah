@@ -13,6 +13,7 @@ import { IContext } from 'src/types'
 // import GraphQLJSON from 'graphql-type-json'
 import { ApplicationModel } from 'src/thread/entities/application.entity'
 import { configOptions } from './config'
+import { CommentModel } from '~/thread/entities/comment.entity'
 
 class GraphqlConfig {
     static getGraphqlConfig(
@@ -20,7 +21,7 @@ class GraphqlConfig {
     ): ApolloFederationDriverConfig {
         return {
             buildSchemaOptions: {
-                orphanedTypes: [ApplicationModel],
+                orphanedTypes: [ApplicationModel, CommentModel],
             },
             cache: new BaseRedisCache({
                 client: new Redis({

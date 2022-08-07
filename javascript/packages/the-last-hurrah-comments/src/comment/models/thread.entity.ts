@@ -13,7 +13,6 @@ import { CommentModel } from './comment.model'
 @ObjectType()
 @Directive('@key(fields: "id subscribed_users_ids application_id")')
 export class ThreadModel {
-    @Directive('@external')
     @Field(() => String, { description: 'UUID for Thread' })
     id: string
 
@@ -21,11 +20,9 @@ export class ThreadModel {
     // @Field(() => String, { nullable: true })
     // pinned_comment_id: string
 
-    @Directive('@external')
     @Field()
     application_id: string
 
-    @Directive('@external')
     @Field(() => [String])
     subscribed_users_ids: string[]
 

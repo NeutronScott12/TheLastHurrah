@@ -28,10 +28,6 @@
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
         "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json"
     },
-    "resolutions": {
-        "graphql": "^15.7.2",
-        "@apollo/subgraph": "0.4.0"
-    },
     "dependencies": {
         "@apollo/federation": "^0.36.2",
         "@apollo/subgraph": "^2.0.5",
@@ -57,7 +53,7 @@
         "cache-manager-redis-store": "^2.0.0",
         "class-validator": "^0.13.2",
         "cross-env": "^7.0.3",
-        "graphql": "^15.7.2",
+        "graphql": "^16.5.0",
         "graphql-type-json": "^0.3.2",
         "helmet": "^5.1.1",
         "ioredis": "^5.2.2",
