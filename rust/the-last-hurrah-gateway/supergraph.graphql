@@ -1,0 +1,292 @@
+
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+{
+  query: Query
+  mutation: Mutation
+}
+
+directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+type ApplicationModel
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id thread_ids moderators_ids authenticated_users_ids banned_users_by_id")
+{
+  id: String!
+  moderators_ids: [String!]!
+  authenticated_users_ids: [String!]!
+  thread_ids: [String!]!
+  banned_users_by_id: [String!]!
+  authenticated_users(authenticatedUserInput: AuthenticatedUserInput!): [UserModel!]!
+  moderators: [UserModel!]!
+}
+
+input AuthenticatedUserInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  choice: CHOICE!
+  limit: Int!
+  skip: Int!
+}
+
+type AvatarEntity
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  id: String!
+  filename: String!
+  encoding: String!
+  key: String!
+  ETag: String!
+  url: String!
+  default_avatar: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+input ChangePasswordInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  email: String!
+  password: String!
+}
+
+enum CHOICE
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  ALL
+  BLOCKED
+  REMOVED
+}
+
+type CommentModel
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id replied_to_id")
+{
+  id: String!
+  replied_to_id: String
+  replied_to_user: UserModel
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+  @join__type(graph: AUTHENTICATION_SERVICE)
+
+input DeleteUserInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  email: String!
+}
+
+input FindProfileInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  username: String!
+}
+
+input ForgotPasswordInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  email: String!
+  redirect_url: String
+}
+
+scalar join__FieldSet
+
+enum join__Graph {
+  AUTHENTICATION_SERVICE @join__graph(name: "authentication_service", url: "http://localhost:4001/graphql")
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+input LoginInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  email: String!
+  password: String!
+  application_short_name: String
+}
+
+type LoginResponse
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  success: Boolean!
+  message: String!
+  token: String!
+  refresh_token: String!
+  user: UserModel!
+  two_factor_authentication: Boolean!
+}
+
+union LoginResponseUnion
+  @join__type(graph: AUTHENTICATION_SERVICE)
+ = LoginResponse | TwoFactorLoginResponse
+
+type Mutation
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  register_user(registrationInput: RegistrationInput!): StandardResponseModel!
+  login_user(loginInput: LoginInput!): LoginResponseUnion!
+  two_factor_login(twoFactorInput: TwoFactorInput!): TwoFactorLoginSuccessResponse!
+  logout_user: StandardResponseModel!
+  block_user(user_id: String!): StandardResponseModel!
+  unblock_user(user_id: String!): StandardResponseModel!
+  forgot_password(forgotPasswordInput: ForgotPasswordInput!): StandardResponseModel!
+  change_password(changePasswordInput: ChangePasswordInput!): StandardResponseModel!
+  confirm_user(token: String!): StandardResponseModel!
+  update_user(updateUserInput: UpdateUserInput!): UserModel!
+  delete_user(deleteUserInput: DeleteUserInput!): StandardResponseModel!
+}
+
+type OrderEntity
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id customer_id")
+{
+  id: String!
+  customer_id: String!
+  customer: UserModel!
+}
+
+type ProfileEntity
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id")
+{
+  id: String!
+  user: UserModel!
+}
+
+type Query
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  search_user_by_email(email: String!): UserModel!
+  fetch_users: [UserModel!]!
+  current_user: UserModel!
+  resend_email_code(resendEmailCodeInput: ResendEmailCodeInput!): StandardResponseModel!
+  find_profile(findProfileInput: FindProfileInput!): ProfileEntity!
+}
+
+input RegistrationInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  username: String!
+  email: String!
+  password: String!
+  application_id: String
+  redirect_url: String
+  two_factor_authentication: Boolean = false
+  application_short_name: String
+}
+
+input ResendEmailCodeInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  email: String!
+  redirect_url: String!
+}
+
+type StandardResponseModel
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  success: Boolean!
+  message: String!
+}
+
+enum STATUS
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  ONLINE
+  OFFLINE
+  AWAY
+  INVISBLE
+}
+
+type ThreadModel
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id subscribed_users_ids application_id")
+{
+  id: String!
+  subscribed_users_ids: [String!]!
+  application_id: String!
+  subscribed_users: [UserModel!]!
+}
+
+input TwoFactorInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  two_factor_id: String!
+  email: String!
+  application_short_name: String
+}
+
+type TwoFactorLoginResponse
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  success: Boolean!
+  message: String!
+  two_factor_authentication: Boolean!
+}
+
+type TwoFactorLoginSuccessResponse
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  success: Boolean!
+  message: String!
+  token: String!
+  refresh_token: String!
+  user: UserModel!
+  two_factor_authentication: Boolean!
+}
+
+input UpdateUserInput
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  two_factor_authentication: Boolean
+  user_role: USER_ROLE
+  email: String
+  username: String
+}
+
+enum USER_ROLE
+  @join__type(graph: AUTHENTICATION_SERVICE)
+{
+  USER
+  MODERATOR
+  ADMIN
+  OWNER
+  SUPER_ADMIN
+}
+
+type UserModel
+  @join__type(graph: AUTHENTICATION_SERVICE, key: "id")
+{
+  id: String!
+  applications_joined_ids: [String!]!
+  created_at: DateTime!
+  updated_at: DateTime!
+  user_role: USER_ROLE!
+  email: String!
+  blocked_users: [UserModel!]!
+  status: STATUS!
+  avatar: AvatarEntity!
+  two_factor_authentication: Boolean!
+  username: String!
+  last_active: DateTime!
+  confirmed: Boolean!
+}
