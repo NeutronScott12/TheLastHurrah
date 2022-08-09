@@ -11,6 +11,23 @@ services:
         image: notification_service
         extra_hosts:
             - 'host.docker.internal:host-gateway'
+        depends_on:
+            - thelasthurrah_notifications_database
         ports:
             - '4006:4006'
             - '50054:50054'
+    thelasthurrah_notifications_database:
+        image: postgres:14.1-alpine
+        container_name: thelasthurrah_notifications_database
+        restart: always
+        ports:
+            - '5437:5432'
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=thelasthurrah_notifications
+        volumes:
+            - thelasthurrah_notifications_database:/var/lib/postgresql/data
+
+volumes:
+    thelasthurrah_notifications_database:

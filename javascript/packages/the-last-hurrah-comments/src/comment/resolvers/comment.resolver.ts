@@ -276,14 +276,14 @@ export class CommentResolver {
             })
 
             if (!thread) {
-                return new NotFoundException({
+                throw new NotFoundException({
                     success: false,
                     message: 'Could not fetch Thread with ID provided',
                 })
             }
 
             if (thread.thread_closed) {
-                return new ForbiddenException({
+                throw new ForbiddenException({
                     success: false,
                     message: 'Thread locked, no comments allowed',
                 })
@@ -351,14 +351,14 @@ export class CommentResolver {
             })
 
             if (!thread) {
-                return new NotFoundException({
+                throw new NotFoundException({
                     success: false,
                     message: 'Could not fetch Thread with ID provided',
                 })
             }
 
             if (thread.thread_closed) {
-                return new ForbiddenException({
+                throw new ForbiddenException({
                     success: false,
                     message: 'Thread locked, no comments allowed',
                 })

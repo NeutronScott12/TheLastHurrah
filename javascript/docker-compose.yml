@@ -19,7 +19,7 @@ services:
             - redis
 
     thelasthurrah_application_database:
-        image: onjin/alpine-postgres
+        image: postgres:14.1-alpine
         container_name: thelasthurrah_application_database
         restart: always
         expose:
@@ -34,7 +34,7 @@ services:
             - thelasthurrah_application_database:/var/lib/postgresql/data
 
     thelasthurrah_authentication_database:
-        image: onjin/alpine-postgres
+        image: postgres:14.1-alpine
         container_name: thelasthurrah_authentication_database
         restart: always
         expose:
@@ -49,7 +49,7 @@ services:
             - thelasthurrah_authentication_database:/var/lib/postgresql/data
 
     lasthurrah_commence_database:
-        image: onjin/alpine-postgres
+        image: postgres:14.1-alpine
         container_name: lasthurrah_commence_database
         restart: always
         expose:
@@ -64,7 +64,7 @@ services:
             - lasthurrah_commence_database:/var/lib/postgresql/data
 
     lasthurrah_comments_database:
-        image: onjin/alpine-postgres
+        image: postgres:14.1-alpine
         container_name: lasthurrah_comments_database
         restart: always
         expose:
@@ -78,21 +78,21 @@ services:
         volumes:
             - lasthurrah_comments_database:/var/lib/postgresql/data
 
-    thelasthurrah_notifications_database:
-        image: onjin/alpine-postgres
-        container_name: thelasthurrah_notifications_database
-        restart: always
-        ports:
-            - '5437:5432'
-        environment:
-            - POSTGRES_USER=postgres
-            - POSTGRES_PASSWORD=postgres
-            - POSTGRES_DB=thelasthurrah_notifications
-        volumes:
-            - thelasthurrah_notifications_database:/var/lib/postgresql/data
+    # thelasthurrah_notifications_database:
+    #     image: postgres:14.1-alpine
+    #     container_name: thelasthurrah_notifications_database
+    #     restart: always
+    #     ports:
+    #         - '5437:5432'
+    #     environment:
+    #         - POSTGRES_USER=postgres
+    #         - POSTGRES_PASSWORD=postgres
+    #         - POSTGRES_DB=thelasthurrah_notifications
+    #     volumes:
+    #         - thelasthurrah_notifications_database:/var/lib/postgresql/data
 
     thelasthurrah_threads_database:
-        image: onjin/alpine-postgres
+        image: postgres:14.1-alpine
         container_name: thelasthurrah_threads_database
         restart: always
         ports:
@@ -109,5 +109,5 @@ volumes:
     thelasthurrah_authentication_database:
     lasthurrah_commence_database:
     lasthurrah_comments_database:
-    thelasthurrah_notifications_database:
+    # thelasthurrah_notifications_database:
     thelasthurrah_threads_database:

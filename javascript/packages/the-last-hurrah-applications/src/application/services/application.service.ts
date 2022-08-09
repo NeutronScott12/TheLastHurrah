@@ -285,8 +285,6 @@ export class ApplicationService {
     }
 
     async check_valid_user(args: ICheckValidUserArgs) {
-        console.log(`CHECK_VALID_USER: Args - ${JSON.stringify(args)}`)
-
         if (args) {
             const application = await this.findOneByName({
                 where: {

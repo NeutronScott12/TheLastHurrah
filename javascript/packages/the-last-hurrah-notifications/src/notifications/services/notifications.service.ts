@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { Injectable, InternalServerErrorException } from '@nestjs/common'
-import { PrismaService } from '../../prisma/prisma.service'
+import { PrismaService } from '../../prisma_service/prisma.service'
 
 @Injectable()
 export class NotificationService {

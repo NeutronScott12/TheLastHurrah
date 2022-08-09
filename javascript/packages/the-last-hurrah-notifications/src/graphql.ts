@@ -7,6 +7,7 @@
 
 /* tslint:disable */
 /* eslint-disable */
+
 export interface FetchNotificationByApplicationShortNameInput {
     short_name: string;
 }

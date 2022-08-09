@@ -1,4 +1,4 @@
-import { PrismaService } from '../../../prisma/prisma.service'
+import { PrismaService } from '../../../prisma_service/prisma.service'
 import { NotificationService } from '../../../notifications/services/notifications.service'
 import { NotificationController } from '../notification.controller'
 import { HealthService } from '../../../notifications/services/heath.service'
